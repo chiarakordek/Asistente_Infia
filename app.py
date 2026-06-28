@@ -32,6 +32,10 @@ from src.db import (
 )
 from src.transcriptor import transcribir_audio
 from src.generar_informe import formatear_informe_ia
+from src.db import inicializar_bd
+
+# Inicializar base de datos al arrancar
+inicializar_bd()
 
 # ─── Helpers ─────────────────────────────
 AREAS_DEFAULT = [
@@ -55,6 +59,19 @@ def login_required(f):
             return redirect('/login')
         return f(*a, **kw)
     return wrap
+
+# ─── Inicialización perezosa de BD ──────
+_bd_inicializada = False
+
+@app.before_request
+def asegurar_bd():
+    global _bd_inicializada
+    if not _bd_inicializada:
+        try:
+            inicializar_bd()
+            _bd_inicializada = True
+        except Exception:
+            pass  # Reintenta en el próximo request
 
 # ─── PÁGINAS ─────────────────────────────
 

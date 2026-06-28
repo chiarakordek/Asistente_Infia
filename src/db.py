@@ -103,8 +103,6 @@ def inicializar_bd():
     finally:
         conn.close()
 
-inicializar_bd()
-
 # ─── USUARIOS ────────────────────────────
 
 def crear_usuario(nombre, email, contraseña, sala, turno):
