@@ -87,8 +87,7 @@ body {
 }
 
 .alumno-bottom .dropdown {
-  flex-shrink: 0;
-  max-width: 130px;
+  min-width: 0;
 }
 
 .alumno-bottom .dropdown-toggle {
@@ -96,7 +95,6 @@ body {
   padding: 0.2rem 0.4rem;
   min-height: 28px;
   text-align: left;
-  max-width: 100%;
   overflow: hidden;
 }
 
@@ -109,14 +107,6 @@ body {
 .alumno-bottom .dropdown-menu .dropdown-item {
   padding: 0.35rem 0.7rem;
   font-size: 0.8rem;
-}
-
-.alumno-bottom .obs-texto {
-  flex: 1;
-  min-width: 0;
-  min-height: 28px;
-  font-size: 0.75rem;
-  padding: 0.15rem 0.4rem;
 }
 
 .alumno-bottom .btn-save {
@@ -482,11 +472,9 @@ hr { margin: 1rem 0; opacity: 0.5; }
   .alumno-item { padding: 0.4rem 0.55rem; margin-bottom: 0.3rem; }
   .alumno-top { margin-bottom: 0.6rem; }
   .alumno-nombre { font-size: 0.8rem; }
-  .alumno-bottom .dropdown { max-width: 110px; }
   .alumno-bottom .dropdown-toggle { font-size: 0.7rem; padding: 0.15rem 0.3rem; min-height: 26px; }
   .alumno-bottom .dropdown-menu { min-width: 160px; font-size: 0.75rem; }
-  .alumno-bottom .obs-texto { font-size: 0.7rem; min-height: 26px; padding: 0.1rem 0.35rem; }
-  .alumno-bottom .btn-save { font-size: 0.7rem; min-height: 26px; padding: 0.1rem 0.35rem; min-width: 30px; }
+  .alumno-bottom .btn-save { font-size: 0.7rem; min-height: 26px; padding: 0.15rem 0.35rem; min-width: 30px; }
   .btn-record { width: 26px; height: 26px; font-size: 0.8rem; }
   .btn-icon { width: 26px; height: 26px; }
   .btn-sm { font-size: 0.7rem; padding: 0.15rem 0.35rem; min-height: 26px; }

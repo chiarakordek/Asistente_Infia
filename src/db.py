@@ -133,6 +133,15 @@ def obtener_usuario_por_id(id_usuario):
     finally:
         conn.close()
 
+def actualizar_perfil(id_usuario, nombre, sala, turno):
+    conn = conectar()
+    try:
+        execute(conn, 'UPDATE usuarios SET nombre = %s, sala = %s, turno = %s WHERE id_usuario = %s',
+                (nombre, sala, turno, id_usuario))
+        conn.commit()
+    finally:
+        conn.close()
+
 def actualizar_contraseña(id_usuario, nueva_hash):
     conn = conectar()
     try:

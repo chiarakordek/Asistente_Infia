@@ -14,8 +14,39 @@ app = Flask(__name__,
 
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 app.permanent_session_lifetime = 86400 * 30  # 30 días
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+if not os.environ.get('FLASK_DEBUG'):
+    app.config['SESSION_COOKIE_SECURE'] = True
 AUDIO_DIR = os.path.join(app.static_folder, 'audios')
 os.makedirs(AUDIO_DIR, exist_ok=True)
+
+# ─── Seguridad: rate limiting simple ────
+from collections import defaultdict
+from datetime import datetime, timedelta
+_login_intentos = defaultdict(list)
+_MAX_INTENTOS = 5
+_VENTANA_MINUTOS = 15
+
+def revisar_rate_limit(ip):
+    ahora = datetime.now()
+    intentos = [t for t in _login_intentos[ip] if ahora - t < timedelta(minutes=_VENTANA_MINUTOS)]
+    _login_intentos[ip] = intentos
+    if len(intentos) >= _MAX_INTENTOS:
+        return False
+    _login_intentos[ip].append(ahora)
+    return True
+
+# ─── Security headers ────────────────────
+@app.after_request
+def seguridad_headers(resp):
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    resp.headers['X-Frame-Options'] = 'DENY'
+    resp.headers['X-XSS-Protection'] = '1; mode=block'
+    resp.headers['Referrer-Policy'] = 'same-origin'
+    csp = "default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self'"
+    resp.headers['Content-Security-Policy'] = csp
+    return resp
 
 # ─── Imports del backend ─────────────────
 from src.db import (
@@ -117,6 +148,9 @@ def alumno_page(id_alumno):
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
+    ip = request.remote_addr or 'unknown'
+    if not revisar_rate_limit(ip):
+        return jsonify(error='Demasiados intentos. Esperá 15 minutos.'), 429
     data = request.json
     email = (data.get('email') or '').strip()
     contraseña = data.get('contraseña') or ''
@@ -127,6 +161,8 @@ def api_login():
         return jsonify(error='Email o contraseña incorrectos'), 401
     session.permanent = True
     session['user_id'] = user['id_usuario']
+    # Limpiar intentos al login exitoso
+    _login_intentos[ip] = []
     return jsonify(ok=True, nombre=user['nombre'])
 
 @app.route('/api/register', methods=['POST'])
@@ -139,8 +175,8 @@ def api_register():
         return jsonify(error='El nombre es obligatorio'), 400
     if not email or '@' not in email or '.' not in email:
         return jsonify(error='Email inválido'), 400
-    if len(contraseña) < 4:
-        return jsonify(error='La contraseña debe tener al menos 4 caracteres'), 400
+    if len(contraseña) < 6:
+        return jsonify(error='La contraseña debe tener al menos 6 caracteres'), 400
     uid = crear_usuario(nombre, email,
                         hash_pass(contraseña),
                         data.get('sala', '3 Años B'),
@@ -345,8 +381,8 @@ def api_ejecutar_reset(token):
     from src.db import obtener_usuario_por_token, eliminar_token
     data = request.json
     nueva = (data.get('nueva') or '')
-    if len(nueva) < 4:
-        return jsonify(error='La contraseña debe tener al menos 4 caracteres'), 400
+    if len(nueva) < 6:
+        return jsonify(error='La contraseña debe tener al menos 6 caracteres'), 400
     user = obtener_usuario_por_token(token)
     if not user:
         return jsonify(error='Token inválido o expirado'), 400
@@ -365,11 +401,13 @@ def api_cambiar_contraseña():
     nueva = (data.get('nueva') or '')
     if not actual or not nueva:
         return jsonify(error='Completá ambos campos'), 400
-    if len(nueva) < 4:
-        return jsonify(error='La nueva contraseña debe tener al menos 4 caracteres'), 400
+    if len(nueva) < 6:
+        return jsonify(error='La nueva contraseña debe tener al menos 6 caracteres'), 400
     user = obtener_usuario_por_id(session['user_id'])
     if not check_password_hash(user['contraseña'], actual):
         return jsonify(error='La contraseña actual no es correcta'), 401
+    if nueva == actual:
+        return jsonify(error='La nueva contraseña debe ser diferente a la actual'), 400
     from src.db import actualizar_contraseña
     actualizar_contraseña(session['user_id'], hash_pass(nueva))
     return jsonify(ok=True)
@@ -380,6 +418,26 @@ def api_cambiar_contraseña():
 @login_required
 def config_page():
     return render_template('config.html')
+
+@app.route('/perfil')
+@login_required
+def perfil_page():
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('perfil.html', user=user)
+
+@app.route('/api/usuario/perfil', methods=['PUT'])
+@login_required
+def api_actualizar_perfil():
+    data = request.json
+    user = obtener_usuario_por_id(session['user_id'])
+    nombre = (data.get('nombre') or user['nombre']).strip()
+    sala = data.get('sala') or user['sala']
+    turno = data.get('turno') or user['turno']
+    if not nombre:
+        return jsonify(error='El nombre no puede estar vacío'), 400
+    from src.db import actualizar_perfil
+    actualizar_perfil(session['user_id'], nombre, sala, turno)
+    return jsonify(ok=True)
 
 # ─── PÁGINA: RESET ─────────────────────────
 

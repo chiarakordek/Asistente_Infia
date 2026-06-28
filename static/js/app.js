@@ -142,16 +142,15 @@ async function cargarAlumnos() {
           </div>
         </div>
         <div class="alumno-bottom">
-          <div class="dropdown actividad-dropdown" data-alumno="${a.id_alumno}">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle text-truncate" type="button" data-bs-toggle="dropdown">
+          <div class="dropdown actividad-dropdown flex-grow-1" data-alumno="${a.id_alumno}">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle text-truncate w-100" type="button" data-bs-toggle="dropdown">
               <span class="actividad-label">Actividad</span>
             </button>
-            <ul class="dropdown-menu dropdown-menu-actividades" style="max-height:40vh;overflow-y:auto">
+            <ul class="dropdown-menu w-100 dropdown-menu-actividades" style="max-height:40vh;overflow-y:auto">
               <li><a class="dropdown-item" href="#" data-value="">— Sin actividad —</a></li>
               ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
             </ul>
           </div>
-          <input type="text" class="form-control form-control-sm obs-texto" placeholder="Obs..." data-alumno="${a.id_alumno}">
           <button class="btn btn-sm btn-primary fw-bold btn-save" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar">💾</button>
         </div>
       </div>
@@ -185,22 +184,19 @@ async function cargarActividadesSelect() {
 async function guardarObs(idAlumno, btn) {
   const dd = document.querySelector(`.actividad-dropdown[data-alumno="${idAlumno}"]`);
   const value = dd ? dd.dataset.selected : '';
-  const input = document.querySelector(`.obs-texto[data-alumno="${idAlumno}"]`);
-  const texto = input ? input.value.trim() : '';
-  if (!texto && !value) {
-    mostrarToast('Escribí una observación o seleccioná una actividad', 'warning');
+  if (!value) {
+    mostrarToast('Seleccioná una actividad primero', 'warning');
     return;
   }
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  const label = dd.querySelector('.actividad-label');
   try {
     await api('POST', '/api/observaciones', {
-      id_alumno: idAlumno,
-      id_actividad: value ? parseInt(value) : null,
-      nota_cruda: texto || '(sin texto)',
+      id_alumno: idAlumno, id_actividad: parseInt(value),
+      nota_cruda: `Actividad completada: ${label.textContent}`,
       tipo: 'texto'
     });
-    if (input) input.value = '';
     mostrarToast('Observación guardada');
     cargarObsHoy();
   } catch (e) {
