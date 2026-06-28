@@ -52,8 +52,8 @@ body {
 .card { border: none; }
 
 .alumno-item {
-  padding: 1rem 1.15rem;
-  margin-bottom: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.5rem;
 }
 
 .alumno-item:hover {
@@ -61,10 +61,59 @@ body {
   transform: translateY(-1px);
 }
 
+.alumno-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.alumno-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.alumno-actions .dropdown {
+  flex-shrink: 0;
+  max-width: 45%;
+}
+
+.alumno-actions .dropdown-toggle {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.alumno-actions .dropdown-menu {
+  min-width: 200px;
+  max-width: min(90vw, 400px);
+}
+
+.alumno-actions .obs-texto {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.alumno-actions .btn-primary {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  min-width: 40px;
+}
+
 .alumno-nombre {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   color: var(--primary) !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Buttons - BIGGER touch targets */
@@ -83,8 +132,13 @@ body {
 .btn-sm {
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
-  padding: 0.4rem 0.8rem;
-  min-height: 38px;
+  padding: 0.35rem 0.7rem;
+  min-height: 36px;
+}
+
+.btn-sm .spinner-border-sm {
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 .btn-primary {
@@ -109,15 +163,15 @@ body {
 }
 
 .btn-record {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   flex-shrink: 0;
-  font-size: 1.2rem;
+  font-size: 1rem;
 }
 
 .btn-record.recording {
@@ -132,7 +186,7 @@ body {
   50% { opacity: 0.5; }
 }
 
-/* Form controls - BIGGER */
+/* Form controls */
 .form-control, .form-select {
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--border);
@@ -140,6 +194,12 @@ body {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   padding: 0.6rem 0.85rem;
   min-height: 44px;
+}
+
+.form-control-sm {
+  min-height: 36px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
 }
 
 .form-control:focus, .form-select:focus {
@@ -406,9 +466,48 @@ hr { margin: 1.5rem 0; opacity: 0.5; }
 
 /* Responsive */
 @media (max-width: 576px) {
-  .alumno-item .row { row-gap: 0.5rem; }
-  .actividad-select { max-width: 100%; }
+  .alumno-item {
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 0.4rem;
+  }
+  .alumno-header {
+    margin-bottom: 0.35rem;
+  }
+  .alumno-actions {
+    gap: 0.3rem;
+  }
+  .alumno-actions .dropdown {
+    max-width: 35%;
+  }
+  .alumno-nombre {
+    font-size: 0.9rem;
+  }
   .informe-card { padding: 1.25rem; }
   .container-fluid { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
-  .btn { font-size: 0.9rem; }
+  .btn { font-size: 0.85rem; }
+  .btn-sm {
+    font-size: 0.8rem;
+    padding: 0.3rem 0.55rem;
+    min-height: 32px;
+  }
+  .btn-record {
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+  }
+  .alumno-actions .obs-texto {
+    min-height: 32px;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+  }
+  .alumno-actions .btn-primary {
+    min-height: 32px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    min-width: 36px;
+  }
+  .stats-row .col-3 { padding: 0 0.25rem; }
+  .stats-row .card { padding: 0.5rem !important; }
+  .stats-row .card .fs-5 { font-size: 1rem !important; }
+  .stats-row .card .small { font-size: 0.7rem !important; }
 }

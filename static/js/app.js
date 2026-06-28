@@ -133,7 +133,7 @@ async function cargarAlumnos() {
     }
     c.innerHTML = alumnos.map(a => `
       <div class="alumno-item" data-id="${a.id_alumno}">
-        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <div class="alumno-header">
           <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none">${a.apellido}, ${a.nombre}</a>
           <div class="d-flex gap-1 flex-shrink-0">
             <button class="btn btn-sm btn-outline-success btn-record" data-alumno="${a.id_alumno}" onclick="toggleRecord(this)" title="Grabar audio">🎤</button>
@@ -141,18 +141,18 @@ async function cargarAlumnos() {
             <button class="btn btn-sm btn-outline-danger" onclick="eliminarAlumno(${a.id_alumno})" title="Eliminar">✕</button>
           </div>
         </div>
-        <div class="dropdown actividad-dropdown" data-alumno="${a.id_alumno}">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle text-start w-100" type="button" data-bs-toggle="dropdown">
-            <span class="actividad-label">Seleccionar actividad</span>
-          </button>
-          <ul class="dropdown-menu w-100" style="max-height:40vh;overflow-y:auto">
-            <li><a class="dropdown-item" href="#" data-value="">— Sin actividad —</a></li>
-            ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
-          </ul>
-        </div>
-        <div class="d-flex gap-2 mt-1">
-          <input type="text" class="form-control form-control-sm obs-texto" placeholder="Escribí una observación..." data-alumno="${a.id_alumno}">
-          <button class="btn btn-sm btn-primary fw-bold flex-shrink-0" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar texto">💾</button>
+        <div class="alumno-actions">
+          <div class="dropdown actividad-dropdown" data-alumno="${a.id_alumno}">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle text-truncate" type="button" data-bs-toggle="dropdown">
+              <span class="actividad-label">Seleccionar actividad</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-actividades" style="max-height:40vh;overflow-y:auto">
+              <li><a class="dropdown-item" href="#" data-value="">— Sin actividad —</a></li>
+              ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
+            </ul>
+          </div>
+          <input type="text" class="form-control form-control-sm obs-texto" placeholder="Observación..." data-alumno="${a.id_alumno}">
+          <button class="btn btn-sm btn-primary fw-bold" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar texto">💾</button>
         </div>
       </div>
     `).join('');
