@@ -1,8 +1,8 @@
 import os
 import json
-import hashlib
 import functools
 from datetime import date
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, request, jsonify, session, redirect, render_template, send_from_directory
 
 # ─── Rutas base ───────────────────────────
@@ -26,6 +26,8 @@ from src.db import (
     obtener_observaciones_alumno, obtener_todas_observaciones_dia,
     guardar_informe, obtener_informe_reciente, actualizar_informe,
     renombrar_area, obtener_areas_usuario,
+    crear_unidad, obtener_unidades, obtener_unidad, actualizar_unidad, eliminar_unidad,
+    obtener_stats,
 )
 from src.transcriptor import transcribir_audio
 from src.generar_informe import formatear_informe_ia
@@ -41,7 +43,7 @@ def areas_para(user_id):
     return areas or AREAS_DEFAULT
 
 def hash_pass(pw):
-    return hashlib.sha256(pw.encode()).hexdigest()
+    return generate_password_hash(pw)
 
 def login_required(f):
     @functools.wraps(f)
@@ -98,7 +100,7 @@ def alumno_page(id_alumno):
 def api_login():
     data = request.json
     user = obtener_usuario_por_email(data['email'])
-    if not user or user['contraseña'] != hash_pass(data['contraseña']):
+    if not user or not check_password_hash(user['contraseña'], data['contraseña']):
         return jsonify(error='Email o contraseña incorrectos'), 401
     session['user_id'] = user['id_usuario']
     return jsonify(ok=True, nombre=user['nombre'])
@@ -284,6 +286,74 @@ def api_rename_area():
     renombrar_area(session['user_id'], area_vieja, area_nueva)
     return jsonify(ok=True)
 
+# ─── API: UNIDADES ────────────────────────
+
+@app.route('/api/unidades', methods=['GET'])
+@login_required
+def api_listar_unidades():
+    return jsonify(obtener_unidades(session['user_id']))
+
+@app.route('/api/unidades', methods=['POST'])
+@login_required
+def api_crear_unidad():
+    data = request.json
+    uid = crear_unidad(session['user_id'], data['titulo'], data.get('contenido', ''))
+    return jsonify(id_unidad=uid), 201
+
+@app.route('/api/unidades/<int:id_unidad>', methods=['PUT'])
+@login_required
+def api_actualizar_unidad(id_unidad):
+    data = request.json
+    actualizar_unidad(id_unidad, session['user_id'], data['titulo'], data.get('contenido', ''))
+    return jsonify(ok=True)
+
+@app.route('/api/unidades/<int:id_unidad>', methods=['DELETE'])
+@login_required
+def api_eliminar_unidad(id_unidad):
+    eliminar_unidad(id_unidad, session['user_id'])
+    return jsonify(ok=True)
+
+# ─── PÁGINA: UNIDADES ─────────────────────
+
+@app.route('/unidades')
+@login_required
+def unidades_page():
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('unidades.html', user=user)
+
+# ─── API: STATS ───────────────────────────
+
+@app.route('/api/stats')
+@login_required
+def api_stats():
+    return jsonify(obtener_stats(session['user_id']))
+
+# ─── API: EXPORT ──────────────────────────
+
+@app.route('/api/export/observaciones.csv')
+@login_required
+def api_export_csv():
+    import csv, io
+    alumnos = obtener_alumnos(session['user_id'])
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Apellido', 'Nombre', 'Fecha', 'Actividad', 'Area', 'Observacion', 'Tipo'])
+    for a in alumnos:
+        obs = obtener_observaciones_alumno(a['id_alumno'])
+        for o in obs:
+            writer.writerow([
+                a['apellido'], a['nombre'],
+                (o.get('fecha') or '').split(' ')[0],
+                o.get('act_nombre') or '',
+                o.get('area') or '',
+                o.get('nota_cruda') or '',
+                o.get('tipo') or 'texto',
+            ])
+    return output.getvalue().encode('utf-8-sig'), 200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="observaciones.csv"',
+    }
+
 # ─── API: INFORME ────────────────────────
 
 @app.route('/api/informe/<int:id_alumno>', methods=['POST'])
@@ -294,6 +364,24 @@ def api_generar_informe(id_alumno):
         guardar_informe(id_alumno, 'Cuatrimestral', contenido)
         return jsonify(ok=True, contenido=contenido)
     return jsonify(error='Error al generar informe'), 500
+
+@app.route('/api/informe/<int:id_alumno>/pdf')
+@login_required
+def api_informe_pdf(id_alumno):
+    from src.pdf import informe_to_pdf
+    alumnos = obtener_alumnos(session['user_id'])
+    alumno = next((a for a in alumnos if a['id_alumno'] == id_alumno), None)
+    if not alumno:
+        return jsonify(error='Alumno no encontrado'), 404
+    informe = obtener_informe_reciente(id_alumno)
+    if not informe or not informe.get('contenido_informe'):
+        return jsonify(error='No hay informe generado'), 404
+    pdf_bytes = informe_to_pdf(informe['contenido_informe'],
+                               f"{alumno['apellido']}, {alumno['nombre']}")
+    return pdf_bytes, 200, {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': f'attachment; filename="informe_{alumno["apellido"]}_{alumno["nombre"]}.pdf"',
+    }
 
 @app.route('/api/informe/<int:id_alumno>', methods=['PUT'])
 @login_required

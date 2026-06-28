@@ -75,9 +75,21 @@ let recordingState = { mediaRecorder: null, chunks: [], alumnoId: null, activida
 let seleccionMode = false;
 
 async function cargarDashboard() {
+  await cargarStats();
   await cargarActividadesSelect();
   await cargarAlumnos();
   cargarObsHoy();
+}
+
+async function cargarStats() {
+  try {
+    const s = await api('GET', '/api/stats');
+    const el = id => document.getElementById(id);
+    el('statAlumnos').textContent = s.total_alumnos;
+    el('statObsHoy').textContent = s.observaciones_hoy;
+    el('statTotalObs').textContent = s.total_observaciones;
+    el('statInformes').textContent = s.total_informes;
+  } catch (e) {}
 }
 
 async function cargarAlumnos() {
@@ -308,16 +320,20 @@ async function cargarObsAlumno(idAlumno) {
     // Mostrar informe si existe
     if (data.informe && data.informe.contenido_informe) {
       mostrarInforme(ic, data.informe.contenido_informe, idAlumno);
-    } else if (obs.length > 0) {
-      ic.innerHTML = `<div class="text-center py-4">
-        <p class="mb-2 fs-4">📄</p>
-        <p class="small text-muted">Hay ${obs.length} observaciones. Presioná "Generar" para crear el informe.</p>
-      </div>`;
     } else {
-      ic.innerHTML = `<div class="text-center py-4 text-muted">
-        <p class="mb-1 fs-4">📄</p>
-        <p class="small">No hay actividades registradas para generar informe.</p>
-      </div>`;
+      const btnPDF = document.getElementById('btnPDF');
+      if (btnPDF) btnPDF.style.display = 'none';
+      if (obs.length > 0) {
+        ic.innerHTML = `<div class="text-center py-4">
+          <p class="mb-2 fs-4">📄</p>
+          <p class="small text-muted">Hay ${obs.length} observaciones. Presioná "Generar" para crear el informe.</p>
+        </div>`;
+      } else {
+        ic.innerHTML = `<div class="text-center py-4 text-muted">
+          <p class="mb-1 fs-4">📄</p>
+          <p class="small">No hay actividades registradas para generar informe.</p>
+        </div>`;
+      }
     }
 
     // Mostrar observaciones
@@ -380,6 +396,9 @@ function mostrarInforme(container, contenido, idAlumno) {
     .replace(/INFORME 2025 - PRIMERA ETAPA/g, '<div class="subtitulo">INFORME 2025 - PRIMERA ETAPA</div>')
     .replace(/(IDENTIDAD Y CONVIVENCIA|LENGUAJE Y LITERATURA|MATEMÁTICAS|CIENCIAS SOCIALES, CIENCIAS NATURALES Y TECNOLOGIA):?/g, '<div class="area">$1</div>')
     .replace(/FALTAS:.*/g, m => `<div class="faltas">${m}</div>`);
+
+  const btnPDF = document.getElementById('btnPDF');
+  if (btnPDF) btnPDF.style.display = '';
 
   container.innerHTML = `
     <div class="informe-card" id="informeView">${html}</div>

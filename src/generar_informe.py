@@ -1,9 +1,10 @@
-import sqlite3
 import os
 from openai import OpenAI
 from . import config
+import psycopg2
+from psycopg2 import extras
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'informes_jardin.db')
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
 AREAS_INFORME = [
     'IDENTIDAD Y CONVIVENCIA',
@@ -17,29 +18,41 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
 )
 
+def fetch_all(sql, params=None):
+    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+    try:
+        with conn.cursor(cursor_factory=extras.RealDictCursor) as cur:
+            cur.execute(sql, params or ())
+            return [dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+def fetch_one(sql, params=None):
+    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+    try:
+        with conn.cursor(cursor_factory=extras.RealDictCursor) as cur:
+            cur.execute(sql, params or ())
+            r = cur.fetchone()
+            return dict(r) if r else None
+    finally:
+        conn.close()
+
 def obtener_datos_alumno(id_alumno):
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute('''
+    alumno = fetch_one('''
         SELECT al.nombre, al.apellido, u.sala, u.turno, u.nombre as docente
         FROM alumnos al
         JOIN usuarios u ON al.id_usuario = u.id_usuario
-        WHERE al.id_alumno = ?
+        WHERE al.id_alumno = %s
     ''', (id_alumno,))
-    alumno = cursor.fetchone()
     if not alumno:
-        conn.close()
         return None, []
-    cursor.execute('''
+    notas = fetch_all('''
         SELECT a.area, a.nombre as act_nombre, o.nota_cruda, o.fecha
         FROM observaciones o
         LEFT JOIN actividades a ON o.id_actividad = a.id_actividad
-        WHERE o.id_alumno = ?
+        WHERE o.id_alumno = %s
         ORDER BY o.fecha
     ''', (id_alumno,))
-    notas = cursor.fetchall()
-    conn.close()
     return alumno, notas
 
 def formatear_informe_ia(id_alumno):
@@ -47,7 +60,7 @@ def formatear_informe_ia(id_alumno):
     if not alumno:
         return None
 
-    nombre, apellido, sala, turno, docente = alumno
+    nombre, apellido, sala, turno, docente = alumno['nombre'], alumno['apellido'], alumno['sala'], alumno['turno'], alumno['docente']
     nombre_completo = f"{apellido}, {nombre}"
 
     obs_por_area = {a: [] for a in AREAS_INFORME}

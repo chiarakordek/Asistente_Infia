@@ -15,17 +15,46 @@
       <span class="navbar-brand fw-bold">Asistente Informes</span>
       <div class="navbar-nav ms-auto flex-row gap-2">
         <a class="btn btn-sm btn-outline-light fw-medium" href="/actividades">Actividades</a>
+        <a class="btn btn-sm btn-outline-light fw-medium" href="/unidades">Unidades</a>
         <button class="btn btn-sm btn-outline-light fw-medium" onclick="logout()">Salir</button>
       </div>
     </div>
   </nav>
 
   <div class="container-fluid px-3 py-3" style="max-width:800px">
+    <!-- Stats -->
+    <div class="row g-2 mb-3" id="statsRow">
+      <div class="col-3">
+        <div class="card text-center p-2 border-0 shadow-sm">
+          <div class="fs-5 fw-bold text-primary" id="statAlumnos">-</div>
+          <div class="small text-muted">Alumnos</div>
+        </div>
+      </div>
+      <div class="col-3">
+        <div class="card text-center p-2 border-0 shadow-sm">
+          <div class="fs-5 fw-bold text-success" id="statObsHoy">-</div>
+          <div class="small text-muted">Obs. hoy</div>
+        </div>
+      </div>
+      <div class="col-3">
+        <div class="card text-center p-2 border-0 shadow-sm">
+          <div class="fs-5 fw-bold text-warning" id="statTotalObs">-</div>
+          <div class="small text-muted">Total obs.</div>
+        </div>
+      </div>
+      <div class="col-3">
+        <div class="card text-center p-2 border-0 shadow-sm">
+          <div class="fs-5 fw-bold text-info" id="statInformes">-</div>
+          <div class="small text-muted">Informes</div>
+        </div>
+      </div>
+    </div>
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
       <h5 class="fw-bold mb-0">Mis alumnos</h5>
       <div class="d-flex gap-2">
         <button class="btn btn-sm btn-outline-primary fw-bold" onclick="mostrarModalAlumno()">+ Alumno</button>
         <button class="btn btn-sm btn-outline-success fw-bold" onclick="cargarVarios()">+ Varios</button>
+        <a class="btn btn-sm btn-outline-info fw-bold" href="/api/export/observaciones.csv">CSV</a>
       </div>
     </div>
 

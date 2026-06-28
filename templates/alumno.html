@@ -32,6 +32,9 @@
         <button class="btn btn-sm btn-primary fw-bold" id="btnGenerar" onclick="generarInforme({{ alumno.id_alumno }})">
           Generar / Regenerar
         </button>
+        <a class="btn btn-sm btn-outline-success fw-bold" id="btnPDF" href="/api/informe/{{ alumno.id_alumno }}/pdf" style="display:none">
+          PDF
+        </a>
       </div>
     </div>
     <div id="informeContainer">
