@@ -13,6 +13,7 @@ app = Flask(__name__,
     static_folder=os.path.join(ROOT, 'static'))
 
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
+app.permanent_session_lifetime = 86400 * 30  # 30 días
 AUDIO_DIR = os.path.join(app.static_folder, 'audios')
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
@@ -99,23 +100,37 @@ def alumno_page(id_alumno):
 @app.route('/api/login', methods=['POST'])
 def api_login():
     data = request.json
-    user = obtener_usuario_por_email(data['email'])
-    if not user or not check_password_hash(user['contraseña'], data['contraseña']):
+    email = (data.get('email') or '').strip()
+    contraseña = data.get('contraseña') or ''
+    if not email or not contraseña:
+        return jsonify(error='Completá todos los campos'), 400
+    user = obtener_usuario_por_email(email)
+    if not user or not check_password_hash(user['contraseña'], contraseña):
         return jsonify(error='Email o contraseña incorrectos'), 401
+    session.permanent = True
     session['user_id'] = user['id_usuario']
     return jsonify(ok=True, nombre=user['nombre'])
 
 @app.route('/api/register', methods=['POST'])
 def api_register():
     data = request.json
-    uid = crear_usuario(data['nombre'], data['email'],
-                        hash_pass(data['contraseña']),
+    nombre = (data.get('nombre') or '').strip()
+    email = (data.get('email') or '').strip()
+    contraseña = data.get('contraseña') or ''
+    if not nombre:
+        return jsonify(error='El nombre es obligatorio'), 400
+    if not email or '@' not in email or '.' not in email:
+        return jsonify(error='Email inválido'), 400
+    if len(contraseña) < 4:
+        return jsonify(error='La contraseña debe tener al menos 4 caracteres'), 400
+    uid = crear_usuario(nombre, email,
+                        hash_pass(contraseña),
                         data.get('sala', '3 Años B'),
                         data.get('turno', 'Tarde'))
     if uid is None:
         return jsonify(error='El email ya está registrado'), 400
     session['user_id'] = uid
-    return jsonify(ok=True, nombre=data['nombre'])
+    return jsonify(ok=True, nombre=nombre)
 
 @app.route('/api/logout')
 def api_logout():

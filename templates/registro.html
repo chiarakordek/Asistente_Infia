@@ -19,18 +19,26 @@
               <h2 class="fw-bold">Crear cuenta</h2>
               <p class="text-muted small">Completá tus datos</p>
             </div>
-            <form id="registerForm">
+              <form id="registerForm" novalidate>
               <div class="mb-2">
                 <label class="form-label small fw-medium">Nombre completo</label>
                 <input type="text" id="nombre" class="form-control" required>
+                <div class="invalid-feedback">El nombre es obligatorio</div>
               </div>
               <div class="mb-2">
                 <label class="form-label small fw-medium">Email</label>
                 <input type="email" id="email" class="form-control" required autocomplete="email">
+                <div class="invalid-feedback">Ingresá un email válido</div>
               </div>
               <div class="mb-2">
                 <label class="form-label small fw-medium">Contraseña</label>
                 <input type="password" id="password" class="form-control" required minlength="4" autocomplete="new-password">
+                <div class="invalid-feedback">Mínimo 4 caracteres</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label small fw-medium">Confirmar contraseña</label>
+                <input type="password" id="password2" class="form-control" required autocomplete="new-password">
+                <div class="invalid-feedback">Las contraseñas no coinciden</div>
               </div>
               <div class="row g-2 mb-3">
                 <div class="col-6">

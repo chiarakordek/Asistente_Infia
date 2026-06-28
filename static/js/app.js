@@ -39,27 +39,54 @@ document.addEventListener('DOMContentLoaded', () => {
   const lf = document.getElementById('loginForm');
   if (lf) lf.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const errEl = document.getElementById('errorMsg');
+    errEl.classList.add('d-none');
+    if (!lf.email.value || !lf.password.value) {
+      errEl.textContent = 'Completá todos los campos';
+      errEl.classList.remove('d-none');
+      return;
+    }
+    const btn = lf.querySelector('button[type=submit]');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Entrando...';
     try {
       await api('POST', '/api/login', { email: lf.email.value, contraseña: lf.password.value });
       window.location = '/dashboard';
     } catch (err) {
-      document.getElementById('errorMsg').textContent = err.message;
-      document.getElementById('errorMsg').classList.remove('d-none');
+      errEl.textContent = err.message;
+      errEl.classList.remove('d-none');
+      btn.disabled = false; btn.innerHTML = 'Entrar';
     }
   });
 
   const rf = document.getElementById('registerForm');
   if (rf) rf.addEventListener('submit', async (e) => {
     e.preventDefault();
+    // Client-side validation
+    const nombre = rf.nombre.value.trim();
+    const email = rf.email.value.trim();
+    const pw = rf.password.value;
+    const pw2 = rf.password2.value;
+    const errEl = document.getElementById('errorMsg');
+    errEl.classList.add('d-none');
+    // Reset validation
+    rf.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+    let valid = true;
+    if (!nombre) { rf.nombre.classList.add('is-invalid'); valid = false; }
+    if (!email || !email.includes('@')) { rf.email.classList.add('is-invalid'); valid = false; }
+    if (pw.length < 4) { rf.password.classList.add('is-invalid'); valid = false; }
+    if (pw !== pw2) { rf.password2.classList.add('is-invalid'); valid = false; }
+    if (!valid) return;
+    const btn = rf.querySelector('button[type=submit]');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creando...';
     try {
       await api('POST', '/api/register', {
-        nombre: rf.nombre.value, email: rf.email.value,
-        contraseña: rf.password.value, sala: rf.sala.value, turno: rf.turno.value
+        nombre, email, contraseña: pw, sala: rf.sala.value, turno: rf.turno.value
       });
       window.location = '/dashboard';
     } catch (err) {
-      document.getElementById('errorMsg').textContent = err.message;
-      document.getElementById('errorMsg').classList.remove('d-none');
+      errEl.textContent = err.message;
+      errEl.classList.remove('d-none');
+      btn.disabled = false; btn.innerHTML = 'Crear cuenta';
     }
   });
 });
