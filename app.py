@@ -1,0 +1,328 @@
+import os
+import json
+import hashlib
+import functools
+from datetime import date
+from flask import Flask, request, jsonify, session, redirect, render_template, send_from_directory
+
+# ─── Rutas base ───────────────────────────
+ROOT = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(__name__,
+    template_folder=os.path.join(ROOT, 'templates'),
+    static_folder=os.path.join(ROOT, 'static'))
+
+app.secret_key = os.urandom(24).hex()
+AUDIO_DIR = os.path.join(app.static_folder, 'audios')
+os.makedirs(AUDIO_DIR, exist_ok=True)
+
+# ─── Imports del backend ─────────────────
+from src.db import (
+    crear_usuario, obtener_usuario_por_email, obtener_usuario_por_id,
+    registrar_alumno, obtener_alumnos, eliminar_alumno,
+    crear_actividad, crear_actividades_multi, obtener_actividades_dia,
+    eliminar_actividad, actualizar_actividad,
+    guardar_observacion, eliminar_observacion, eliminar_observaciones_multi,
+    obtener_observaciones_alumno, obtener_todas_observaciones_dia,
+    guardar_informe, obtener_informe_reciente, actualizar_informe,
+    renombrar_area, obtener_areas_usuario,
+)
+from src.transcriptor import transcribir_audio
+from src.generar_informe import formatear_informe_ia
+
+# ─── Helpers ─────────────────────────────
+AREAS_DEFAULT = [
+    'Identidad y Convivencia', 'Lenguaje y Literatura',
+    'Matemáticas', 'Ciencias Sociales, Ciencias Naturales y Tecnología',
+]
+
+def areas_para(user_id):
+    areas = obtener_areas_usuario(user_id)
+    return areas or AREAS_DEFAULT
+
+def hash_pass(pw):
+    return hashlib.sha256(pw.encode()).hexdigest()
+
+def login_required(f):
+    @functools.wraps(f)
+    def wrap(*a, **kw):
+        if 'user_id' not in session:
+            if request.is_json:
+                return jsonify(error='No autorizado'), 401
+            return redirect('/login')
+        return f(*a, **kw)
+    return wrap
+
+# ─── PÁGINAS ─────────────────────────────
+
+@app.route('/')
+def index():
+    if 'user_id' in session:
+        return redirect('/dashboard')
+    return redirect('/login')
+
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
+
+@app.route('/registro')
+def registro_page():
+    return render_template('registro.html')
+
+@app.route('/dashboard')
+@login_required
+def dashboard_page():
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('dashboard.html', user=user, areas=areas_para(session['user_id']))
+
+@app.route('/actividades')
+@login_required
+def actividades_page():
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('actividades.html', user=user, areas=areas_para(session['user_id']))
+
+@app.route('/alumno/<int:id_alumno>')
+@login_required
+def alumno_page(id_alumno):
+    from src.db import obtener_alumnos
+    alumnos = obtener_alumnos(session['user_id'])
+    alumno = next((a for a in alumnos if a['id_alumno'] == id_alumno), None)
+    if not alumno:
+        return redirect('/dashboard')
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('alumno.html', alumno=alumno, user=user)
+
+# ─── API: AUTH ───────────────────────────
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.json
+    user = obtener_usuario_por_email(data['email'])
+    if not user or user['contraseña'] != hash_pass(data['contraseña']):
+        return jsonify(error='Email o contraseña incorrectos'), 401
+    session['user_id'] = user['id_usuario']
+    return jsonify(ok=True, nombre=user['nombre'])
+
+@app.route('/api/register', methods=['POST'])
+def api_register():
+    data = request.json
+    uid = crear_usuario(data['nombre'], data['email'],
+                        hash_pass(data['contraseña']),
+                        data.get('sala', '3 Años B'),
+                        data.get('turno', 'Tarde'))
+    if uid is None:
+        return jsonify(error='El email ya está registrado'), 400
+    session['user_id'] = uid
+    return jsonify(ok=True, nombre=data['nombre'])
+
+@app.route('/api/logout')
+def api_logout():
+    session.clear()
+    return jsonify(ok=True)
+
+@app.route('/api/me')
+@login_required
+def api_me():
+    return jsonify(obtener_usuario_por_id(session['user_id']))
+
+# ─── API: ALUMNOS ────────────────────────
+
+@app.route('/api/alumnos', methods=['GET'])
+@login_required
+def api_listar_alumnos():
+    return jsonify(obtener_alumnos(session['user_id']))
+
+@app.route('/api/alumnos', methods=['POST'])
+@login_required
+def api_crear_alumno():
+    data = request.json
+    uid = registrar_alumno(session['user_id'], data['nombre'], data['apellido'])
+    return jsonify(id_alumno=uid), 201
+
+@app.route('/api/alumnos/<int:id_alumno>', methods=['DELETE'])
+@login_required
+def api_eliminar_alumno(id_alumno):
+    eliminar_alumno(id_alumno, session['user_id'])
+    return jsonify(ok=True)
+
+# ─── API: ACTIVIDADES ────────────────────
+
+@app.route('/api/actividades', methods=['GET'])
+@login_required
+def api_listar_actividades():
+    fecha = request.args.get('fecha')
+    return jsonify(obtener_actividades_dia(session['user_id'], fecha))
+
+@app.route('/api/actividades', methods=['POST'])
+@login_required
+def api_crear_actividad():
+    data = request.json
+    uid = crear_actividad(session['user_id'], data['nombre'], data['area'], data.get('fecha'))
+    return jsonify(id_actividad=uid), 201
+
+@app.route('/api/actividades/<int:id_actividad>', methods=['PUT'])
+@login_required
+def api_actualizar_actividad(id_actividad):
+    data = request.json
+    actualizar_actividad(id_actividad, session['user_id'], data.get('nombre'), data.get('area'))
+    return jsonify(ok=True)
+
+@app.route('/api/actividades/<int:id_actividad>', methods=['DELETE'])
+@login_required
+def api_eliminar_actividad(id_actividad):
+    eliminar_actividad(id_actividad, session['user_id'])
+    return jsonify(ok=True)
+
+@app.route('/api/actividades/multi', methods=['POST'])
+@login_required
+def api_crear_actividades_multi():
+    data = request.json
+    actividades = data.get('actividades', [])
+    if not actividades:
+        return jsonify(error='No hay actividades'), 400
+    ids = crear_actividades_multi(session['user_id'], actividades, data.get('fecha'))
+    return jsonify(ids=ids, count=len(ids)), 201
+
+# ─── API: OBSERVACIONES ──────────────────
+
+@app.route('/api/observaciones', methods=['POST'])
+@login_required
+def api_guardar_observacion():
+    data = request.json
+    guardar_observacion(data['id_alumno'], data.get('id_actividad'),
+                        data['nota_cruda'], data.get('tipo', 'texto'))
+    return jsonify(ok=True), 201
+
+@app.route('/api/observaciones/<int:id_observacion>', methods=['DELETE'])
+@login_required
+def api_eliminar_observacion(id_observacion):
+    ruta = eliminar_observacion(id_observacion)
+    if ruta:
+        audio_path = os.path.join(app.static_folder, 'audios', os.path.basename(ruta))
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+    return jsonify(ok=True)
+
+@app.route('/api/observaciones/batch-delete', methods=['POST'])
+@login_required
+def api_eliminar_observaciones_multi():
+    data = request.json
+    ids = data.get('ids', [])
+    if not ids:
+        return jsonify(error='No hay IDs'), 400
+    for ruta in eliminar_observaciones_multi(ids):
+        audio_path = os.path.join(app.static_folder, 'audios', os.path.basename(ruta))
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+    return jsonify(ok=True, count=len(ids))
+
+@app.route('/api/observaciones/alumno/<int:id_alumno>')
+@login_required
+def api_obs_alumno(id_alumno):
+    return jsonify(obtener_observaciones_alumno(id_alumno))
+
+@app.route('/api/observaciones/hoy')
+@login_required
+def api_obs_hoy():
+    return jsonify(obtener_todas_observaciones_dia(session['user_id'], request.args.get('fecha')))
+
+@app.route('/api/alumno/<int:id_alumno>/detalle')
+@login_required
+def api_alumno_detalle(id_alumno):
+    from src.db import obtener_alumnos
+    alumnos = obtener_alumnos(session['user_id'])
+    alumno = next((a for a in alumnos if a['id_alumno'] == id_alumno), None)
+    if not alumno:
+        return jsonify(error='Alumno no encontrado'), 404
+    obs = obtener_observaciones_alumno(id_alumno)
+    informe = obtener_informe_reciente(id_alumno)
+    alumno['observaciones'] = obs
+    alumno['informe'] = informe
+    return jsonify(alumno)
+
+# ─── API: AUDIO ──────────────────────────
+
+@app.route('/api/audio/subir', methods=['POST'])
+@login_required
+def api_subir_audio():
+    if 'audio' not in request.files:
+        return jsonify(error='No se envió archivo de audio'), 400
+    f = request.files['audio']
+    ext = os.path.splitext(f.filename)[1] or '.webm'
+    audio_filename = f'audio_{session["user_id"]}_{os.urandom(4).hex()}{ext}'
+    path = os.path.join(AUDIO_DIR, audio_filename)
+    f.save(path)
+    ruta_audio = f'/static/audios/{audio_filename}'
+    texto = transcribir_audio(int(request.form['id_alumno']),
+                              request.form.get('id_actividad'),
+                              path, session['user_id'])
+    if not texto:
+        texto = 'Audio grabado (transcripción no disponible)'
+        import time; time.sleep(0.1)
+    guardar_observacion(int(request.form['id_alumno']),
+                        request.form.get('id_actividad', type=int),
+                        texto, 'audio', ruta_audio=ruta_audio)
+    return jsonify(ok=True, texto=texto, ruta_audio=ruta_audio), 201
+
+# ─── API: AREAS ───────────────────────────
+
+@app.route('/api/areas', methods=['GET'])
+@login_required
+def api_areas():
+    return jsonify(areas_para(session['user_id']))
+
+@app.route('/api/areas/rename', methods=['POST'])
+@login_required
+def api_rename_area():
+    data = request.json
+    area_vieja = (data.get('area_vieja') or '').strip()
+    area_nueva = (data.get('area_nueva') or '').strip()
+    if not area_vieja or not area_nueva:
+        return jsonify(error='Faltan datos'), 400
+    if area_vieja == area_nueva:
+        return jsonify(error='El nombre nuevo debe ser diferente'), 400
+    renombrar_area(session['user_id'], area_vieja, area_nueva)
+    return jsonify(ok=True)
+
+# ─── API: INFORME ────────────────────────
+
+@app.route('/api/informe/<int:id_alumno>', methods=['POST'])
+@login_required
+def api_generar_informe(id_alumno):
+    contenido = formatear_informe_ia(id_alumno)
+    if contenido:
+        guardar_informe(id_alumno, 'Cuatrimestral', contenido)
+        return jsonify(ok=True, contenido=contenido)
+    return jsonify(error='Error al generar informe'), 500
+
+@app.route('/api/informe/<int:id_alumno>', methods=['PUT'])
+@login_required
+def api_actualizar_informe(id_alumno):
+    data = request.json
+    contenido = (data.get('contenido') or '').strip()
+    if not contenido:
+        return jsonify(error='El contenido no puede estar vacío'), 400
+    actualizar_informe(id_alumno, contenido)
+    return jsonify(ok=True, contenido=contenido)
+
+# ─── PWA & STATIC ────────────────────────
+
+@app.route('/manifest.json')
+def manifest():
+    return send_from_directory(app.static_folder, 'manifest.json')
+
+@app.route('/sw.js')
+def sw():
+    return send_from_directory(app.static_folder, 'sw.js', mimetype='application/javascript')
+
+@app.route('/offline')
+def offline():
+    return render_template('offline.html')
+
+@app.route('/static/<path:path>')
+def static_files(path):
+    return send_from_directory(app.static_folder, path)
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)

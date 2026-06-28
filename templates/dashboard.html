@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Dashboard - Asistente Informes</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css?v=2">
+</head>
+<body>
+  <nav class="navbar navbar-expand navbar-dark shadow-sm sticky-top">
+    <div class="container-fluid px-3">
+      <span class="navbar-brand fw-bold">Asistente Informes</span>
+      <div class="navbar-nav ms-auto flex-row gap-2">
+        <a class="btn btn-sm btn-outline-light fw-medium" href="/actividades">Actividades</a>
+        <button class="btn btn-sm btn-outline-light fw-medium" onclick="logout()">Salir</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-3 py-3" style="max-width:800px">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <h5 class="fw-bold mb-0">Mis alumnos</h5>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-primary fw-bold" onclick="mostrarModalAlumno()">+ Alumno</button>
+        <button class="btn btn-sm btn-outline-success fw-bold" onclick="cargarVarios()">+ Varios</button>
+      </div>
+    </div>
+
+    <div id="alumnosContainer">
+      <div class="text-center py-5 text-muted">Cargando...</div>
+    </div>
+
+    <hr class="my-4">
+    <h6 class="fw-bold mb-2">Observaciones de hoy</h6>
+    <div id="obsHoyContainer">
+      <p class="text-muted small">No hay observaciones registradas hoy.</p>
+    </div>
+  </div>
+
+  <!-- Modal agregar alumno -->
+  <div class="modal fade" id="modalAlumno" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title fw-bold">Agregar alumno</h6>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAlumno">
+            <div class="mb-2">
+              <label class="form-label small fw-medium">Nombre</label>
+              <input type="text" id="alNombre" class="form-control" placeholder="Nombre" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-medium">Apellido</label>
+              <input type="text" id="alApellido" class="form-control" placeholder="Apellido" required>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-sm btn-primary fw-bold" onclick="guardarAlumno()">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal varios alumnos -->
+  <div class="modal fade" id="modalVarios" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title fw-bold">Cargar varios alumnos</h6>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted">Pegá la lista (un alumno por línea, "Nombre Apellido")</p>
+          <textarea id="listaAlumnos" class="form-control" rows="8" placeholder="Juan Pérez&#10;María García&#10;Pedro López"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-sm btn-success fw-bold" onclick="guardarVarios()">Guardar todos</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Install banner -->
+  <div class="install-banner" id="installBanner">
+    <span>Instalá Asistente Informes en tu dispositivo</span>
+    <button class="btn btn-sm btn-primary fw-bold" id="btnInstalar">Instalar</button>
+    <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('installBanner').classList.remove('show')">✕</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', cargarDashboard);
+  </script>
+</body>
+</html>
