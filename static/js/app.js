@@ -133,7 +133,7 @@ async function cargarAlumnos() {
     }
     c.innerHTML = alumnos.map(a => `
       <div class="alumno-item" data-id="${a.id_alumno}">
-        <div class="alumno-header">
+        <div class="alumno-row1">
           <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none">${a.apellido}, ${a.nombre}</a>
           <div class="d-flex gap-1 flex-shrink-0">
             <button class="btn btn-sm btn-outline-success btn-record" data-alumno="${a.id_alumno}" onclick="toggleRecord(this)" title="Grabar audio">🎤</button>
@@ -141,16 +141,16 @@ async function cargarAlumnos() {
             <button class="btn btn-sm btn-outline-danger" onclick="eliminarAlumno(${a.id_alumno})" title="Eliminar">✕</button>
           </div>
         </div>
-        <div class="alumno-actions">
-          <div class="dropdown actividad-dropdown" data-alumno="${a.id_alumno}">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle text-truncate" type="button" data-bs-toggle="dropdown">
-              <span class="actividad-label">Seleccionar actividad</span>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-actividades" style="max-height:40vh;overflow-y:auto">
-              <li><a class="dropdown-item" href="#" data-value="">— Sin actividad —</a></li>
-              ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
-            </ul>
-          </div>
+        <div class="dropdown actividad-dropdown w-100" data-alumno="${a.id_alumno}">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100 text-truncate" type="button" data-bs-toggle="dropdown">
+            <span class="actividad-label">Seleccionar actividad</span>
+          </button>
+          <ul class="dropdown-menu w-100 dropdown-menu-actividades" style="max-height:40vh;overflow-y:auto">
+            <li><a class="dropdown-item" href="#" data-value="">— Sin actividad —</a></li>
+            ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
+          </ul>
+        </div>
+        <div class="alumno-obs-row">
           <input type="text" class="form-control form-control-sm obs-texto" placeholder="Observación..." data-alumno="${a.id_alumno}">
           <button class="btn btn-sm btn-primary fw-bold" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar texto">💾</button>
         </div>
