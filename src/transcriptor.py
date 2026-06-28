@@ -9,13 +9,26 @@ client = OpenAI(
 
 def transcribir_audio(id_alumno, id_actividad, ruta_audio, id_usuario=None):
     if not os.path.exists(ruta_audio):
+        print(f"transcriptor: archivo no existe {ruta_audio}")
         return None
     try:
         with open(ruta_audio, "rb") as f:
             transcripcion = client.audio.transcriptions.create(
                 model="whisper-large-v3-turbo", file=f, language="es"
             )
-        return transcripcion.text
+        texto = transcripcion.text.strip()
+        if texto:
+            return texto
+        print("transcriptor: transcripción vacía")
+        return None
     except Exception as e:
-        print(f"Error Whisper (Groq): {e}")
+        print(f"transcriptor: Error Groq Whisper: {e}")
+        # Devolver el error específico como texto para que el usuario lo vea
+        error_msg = str(e)
+        if "401" in error_msg or "unauthorized" in error_msg.lower() or "invalid" in error_msg.lower() or "API key" in error_msg:
+            return "[Error: GROQ_API_KEY inválida o no configurada. Verificá las variables de entorno en Render.]"
+        if "429" in error_msg:
+            return "[Error: Límite de requests excedido. Esperá unos segundos.]"
+        if "413" in error_msg:
+            return "[Error: Archivo de audio demasiado grande.]"
         return None

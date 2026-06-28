@@ -137,7 +137,6 @@ async function cargarAlumnos() {
           <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none">${a.apellido}, ${a.nombre}</a>
           <div class="d-flex gap-1 flex-shrink-0">
             <button class="btn btn-sm btn-outline-success btn-record" data-alumno="${a.id_alumno}" onclick="toggleRecord(this)" title="Grabar audio">🎤</button>
-            <button class="btn btn-sm btn-primary fw-bold" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar">💾</button>
             <button class="btn btn-sm btn-outline-info" onclick="verObs(${a.id_alumno})" title="Ver observaciones">📄</button>
             <button class="btn btn-sm btn-outline-danger" onclick="eliminarAlumno(${a.id_alumno})" title="Eliminar">✕</button>
           </div>
@@ -150,6 +149,10 @@ async function cargarAlumnos() {
             <li><a class="dropdown-item" href="#" data-value="">— Sin actividad —</a></li>
             ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
           </ul>
+        </div>
+        <div class="d-flex gap-2 mt-1">
+          <input type="text" class="form-control form-control-sm obs-texto" placeholder="Escribí una observación..." data-alumno="${a.id_alumno}">
+          <button class="btn btn-sm btn-primary fw-bold flex-shrink-0" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar texto">💾</button>
         </div>
       </div>
     `).join('');
@@ -182,19 +185,22 @@ async function cargarActividadesSelect() {
 async function guardarObs(idAlumno, btn) {
   const dd = document.querySelector(`.actividad-dropdown[data-alumno="${idAlumno}"]`);
   const value = dd ? dd.dataset.selected : '';
-  if (!value) {
-    mostrarToast('Seleccioná una actividad primero', 'warning');
+  const input = document.querySelector(`.obs-texto[data-alumno="${idAlumno}"]`);
+  const texto = input ? input.value.trim() : '';
+  if (!texto && !value) {
+    mostrarToast('Escribí una observación o seleccioná una actividad', 'warning');
     return;
   }
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-  const label = dd.querySelector('.actividad-label');
   try {
     await api('POST', '/api/observaciones', {
-      id_alumno: idAlumno, id_actividad: parseInt(value),
-      nota_cruda: `Actividad completada: ${label.textContent}`,
+      id_alumno: idAlumno,
+      id_actividad: value ? parseInt(value) : null,
+      nota_cruda: texto || '(sin texto)',
       tipo: 'texto'
     });
+    if (input) input.value = '';
     mostrarToast('Observación guardada');
     cargarObsHoy();
   } catch (e) {
@@ -257,7 +263,11 @@ async function subirAudio(blob, idAlumno, idActividad) {
   if (idActividad) fd.append('id_actividad', idActividad);
   try {
     const r = await api('POST', '/api/audio/subir', fd);
-    mostrarToast('Audio transcrito y guardado');
+    if (r.texto && r.texto.startsWith('[Error:')) {
+      mostrarToast('⚠️ ' + r.texto.replace(/^\[Error:\s*/, '').replace(/\]$/, ''), 'danger');
+    } else {
+      mostrarToast('Audio transcrito: ' + (r.texto || '').substring(0, 80));
+    }
     cargarObsHoy();
   } catch (e) {
     mostrarToast('Error al procesar audio: ' + e.message, 'danger');
@@ -539,7 +549,14 @@ async function cargarObsHoy() {
           <span class="badge ${o.tipo === 'audio' ? 'bg-success' : 'bg-primary'}">${o.tipo === 'audio' ? '🎤' : '📝'}</span>
         </div>
         ${o.act_nombre ? `<small class="text-primary">${o.act_nombre}</small>` : ''}
-        <p class="mb-0 mt-1 small">${o.nota_cruda}</p>
+        ${o.tipo === 'audio' && o.ruta_audio ? `
+          <div class="mt-1">
+            <audio controls preload="none" class="w-100" style="max-width:300px;height:32px">
+              <source src="${o.ruta_audio}" type="audio/webm">
+            </audio>
+          </div>
+        ` : ''}
+        <p class="mb-0 mt-1 small ${o.tipo === 'audio' ? 'fst-italic text-muted' : ''}">${o.nota_cruda}</p>
       </div>
     `).join('');
   } catch (e) {
