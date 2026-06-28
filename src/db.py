@@ -87,13 +87,6 @@ def inicializar_bd():
             contenido_informe TEXT
         )''')
 
-        # Migraciones: agregar columnas si faltan
-        for table, col in [('actividades', 'id_unidad'), ('observaciones', 'ruta_audio'), ('unidades', 'ruta_archivo')]:
-            try:
-                execute(conn, f'ALTER TABLE {table} ADD COLUMN {col} TEXT')
-            except Exception:
-                pass
-
         conn.commit()
         print("Base de datos PostgreSQL actualizada con éxito!")
     except Exception as e:
