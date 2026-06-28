@@ -12,7 +12,7 @@ app = Flask(__name__,
     template_folder=os.path.join(ROOT, 'templates'),
     static_folder=os.path.join(ROOT, 'static'))
 
-app.secret_key = os.urandom(24).hex()
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 AUDIO_DIR = os.path.join(app.static_folder, 'audios')
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
@@ -325,4 +325,4 @@ def static_files(path):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true'))
