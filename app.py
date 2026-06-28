@@ -28,7 +28,7 @@ from src.db import (
     guardar_informe, obtener_informe_reciente, actualizar_informe,
     renombrar_area, obtener_areas_usuario,
     crear_unidad, obtener_unidades, obtener_unidad, actualizar_unidad, eliminar_unidad,
-    obtener_stats,
+    obtener_stats, guardar_reset_token,
 )
 from src.transcriptor import transcribir_audio
 from src.generar_informe import formatear_informe_ia
@@ -317,6 +317,82 @@ def api_rename_area():
         return jsonify(error='El nombre nuevo debe ser diferente'), 400
     renombrar_area(session['user_id'], area_vieja, area_nueva)
     return jsonify(ok=True)
+
+# ─── API: CAMBIO / RESET DE CONTRASEÑA ────
+
+@app.route('/api/usuario/reset-solicitar', methods=['POST'])
+def api_solicitar_reset():
+    data = request.json
+    email = (data.get('email') or '').strip()
+    if not email:
+        return jsonify(error='Ingresá tu email'), 400
+    user = obtener_usuario_por_email(email)
+    if not user:
+        # No revelar si el email existe o no
+        return jsonify(ok=True, mensaje='Si el email existe, recibirás instrucciones')
+    import secrets
+    from datetime import datetime, timedelta
+    token = secrets.token_urlsafe(32)
+    expira = datetime.now() + timedelta(hours=1)
+    guardar_reset_token(user['id_usuario'], token, expira)
+    # Como no tenemos email, devolvemos el link directo
+    reset_link = f"/reset/{token}"
+    return jsonify(ok=True, reset_link=reset_link, mensaje='Link generado. Hacé clic en el enlace para resetear tu contraseña.')
+
+@app.route('/api/usuario/reset/<token>', methods=['POST'])
+def api_ejecutar_reset(token):
+    from src.db import obtener_usuario_por_token, eliminar_token
+    data = request.json
+    nueva = (data.get('nueva') or '')
+    if len(nueva) < 4:
+        return jsonify(error='La contraseña debe tener al menos 4 caracteres'), 400
+    user = obtener_usuario_por_token(token)
+    if not user:
+        return jsonify(error='Token inválido o expirado'), 400
+    from src.db import actualizar_contraseña
+    actualizar_contraseña(user['id_usuario'], hash_pass(nueva))
+    eliminar_token(token)
+    return jsonify(ok=True)
+
+
+
+@app.route('/api/usuario/contraseña', methods=['PUT'])
+@login_required
+def api_cambiar_contraseña():
+    data = request.json
+    actual = (data.get('actual') or '')
+    nueva = (data.get('nueva') or '')
+    if not actual or not nueva:
+        return jsonify(error='Completá ambos campos'), 400
+    if len(nueva) < 4:
+        return jsonify(error='La nueva contraseña debe tener al menos 4 caracteres'), 400
+    user = obtener_usuario_por_id(session['user_id'])
+    if not check_password_hash(user['contraseña'], actual):
+        return jsonify(error='La contraseña actual no es correcta'), 401
+    from src.db import actualizar_contraseña
+    actualizar_contraseña(session['user_id'], hash_pass(nueva))
+    return jsonify(ok=True)
+
+# ─── PÁGINA: CONFIGURACIÓN ─────────────────
+
+@app.route('/config')
+@login_required
+def config_page():
+    return render_template('config.html')
+
+# ─── PÁGINA: RESET ─────────────────────────
+
+@app.route('/reset/<token>')
+def reset_page(token):
+    from src.db import obtener_usuario_por_token
+    user = obtener_usuario_por_token(token)
+    if not user:
+        return '<div style="padding:2rem;text-align:center"><h3>🔗 Token inválido o expirado</h3><p>Pedí un nuevo reset en <a href="/login">iniciar sesión</a>.</p></div>'
+    return render_template('reset.html', token=token)
+
+@app.route('/forgot')
+def forgot_page():
+    return render_template('forgot.html')
 
 # ─── API: UNIDADES ────────────────────────
 

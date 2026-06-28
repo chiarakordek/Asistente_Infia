@@ -133,26 +133,26 @@ async function cargarAlumnos() {
     }
     c.innerHTML = alumnos.map(a => `
       <div class="alumno-item" data-id="${a.id_alumno}">
-        <div class="alumno-row1">
+        <div class="alumno-top">
           <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none">${a.apellido}, ${a.nombre}</a>
-          <div class="d-flex gap-1 flex-shrink-0">
+          <div class="d-flex gap-1">
             <button class="btn btn-sm btn-outline-success btn-record" data-alumno="${a.id_alumno}" onclick="toggleRecord(this)" title="Grabar audio">🎤</button>
-            <button class="btn btn-sm btn-outline-info" onclick="verObs(${a.id_alumno})" title="Ver observaciones">📄</button>
-            <button class="btn btn-sm btn-outline-danger" onclick="eliminarAlumno(${a.id_alumno})" title="Eliminar">✕</button>
+            <button class="btn btn-sm btn-outline-info btn-icon" onclick="verObs(${a.id_alumno})" title="Ver observaciones">📄</button>
+            <button class="btn btn-sm btn-outline-danger btn-icon" onclick="eliminarAlumno(${a.id_alumno})" title="Eliminar">✕</button>
           </div>
         </div>
-        <div class="dropdown actividad-dropdown w-100" data-alumno="${a.id_alumno}">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100 text-truncate" type="button" data-bs-toggle="dropdown">
-            <span class="actividad-label">Seleccionar actividad</span>
-          </button>
-          <ul class="dropdown-menu w-100 dropdown-menu-actividades" style="max-height:40vh;overflow-y:auto">
-            <li><a class="dropdown-item" href="#" data-value="">— Sin actividad —</a></li>
-            ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
-          </ul>
-        </div>
-        <div class="alumno-obs-row">
-          <input type="text" class="form-control form-control-sm obs-texto" placeholder="Observación..." data-alumno="${a.id_alumno}">
-          <button class="btn btn-sm btn-primary fw-bold" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar texto">💾</button>
+        <div class="alumno-bottom">
+          <div class="dropdown actividad-dropdown" data-alumno="${a.id_alumno}">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle text-truncate" type="button" data-bs-toggle="dropdown">
+              <span class="actividad-label">Actividad</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-actividades" style="max-height:40vh;overflow-y:auto">
+              <li><a class="dropdown-item" href="#" data-value="">— Sin actividad —</a></li>
+              ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
+            </ul>
+          </div>
+          <input type="text" class="form-control form-control-sm obs-texto" placeholder="Obs..." data-alumno="${a.id_alumno}">
+          <button class="btn btn-sm btn-primary fw-bold btn-save" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar">💾</button>
         </div>
       </div>
     `).join('');
@@ -374,8 +374,6 @@ async function cargarObsAlumno(idAlumno) {
     if (data.informe && data.informe.contenido_informe) {
       mostrarInforme(ic, data.informe.contenido_informe, idAlumno);
     } else {
-      const btnPDF = document.getElementById('btnPDF');
-      if (btnPDF) btnPDF.style.display = 'none';
       if (obs.length > 0) {
         ic.innerHTML = `<div class="text-center py-4">
           <p class="mb-2 fs-4">📄</p>
@@ -449,9 +447,6 @@ function mostrarInforme(container, contenido, idAlumno) {
     .replace(/INFORME 2025 - PRIMERA ETAPA/g, '<div class="subtitulo">INFORME 2025 - PRIMERA ETAPA</div>')
     .replace(/(IDENTIDAD Y CONVIVENCIA|LENGUAJE Y LITERATURA|MATEMÁTICAS|CIENCIAS SOCIALES, CIENCIAS NATURALES Y TECNOLOGIA):?/g, '<div class="area">$1</div>')
     .replace(/FALTAS:.*/g, m => `<div class="faltas">${m}</div>`);
-
-  const btnPDF = document.getElementById('btnPDF');
-  if (btnPDF) btnPDF.style.display = '';
 
   container.innerHTML = `
     <div class="informe-card" id="informeView">${html}</div>

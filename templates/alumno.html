@@ -17,8 +17,9 @@
   <nav class="navbar navbar-expand navbar-dark shadow-sm sticky-top">
     <div class="container-fluid px-3">
       <span class="navbar-brand fw-bold">{{ alumno.apellido }}, {{ alumno.nombre }}</span>
-      <div class="navbar-nav ms-auto flex-row gap-2">
+      <div class="navbar-nav ms-auto flex-row gap-1">
         <a class="btn btn-sm btn-outline-light fw-medium" href="/dashboard">Alumnos</a>
+        <a class="btn btn-sm btn-outline-light fw-medium" href="/config" title="Configuración">⚙️</a>
         <button class="btn btn-sm btn-outline-light fw-medium" onclick="logout()">Salir</button>
       </div>
     </div>
@@ -32,9 +33,7 @@
         <button class="btn btn-sm btn-primary fw-bold" id="btnGenerar" onclick="generarInforme({{ alumno.id_alumno }})">
           Generar / Regenerar
         </button>
-        <a class="btn btn-sm btn-outline-success fw-bold" id="btnPDF" href="/api/informe/{{ alumno.id_alumno }}/pdf" style="display:none">
-          PDF
-        </a>
+
       </div>
     </div>
     <div id="informeContainer">

@@ -87,6 +87,13 @@ def inicializar_bd():
             contenido_informe TEXT
         )''')
 
+        execute(conn, '''CREATE TABLE IF NOT EXISTS reset_tokens (
+            id_token SERIAL PRIMARY KEY,
+            id_usuario INTEGER NOT NULL REFERENCES usuarios(id_usuario),
+            token TEXT NOT NULL UNIQUE,
+            expira TIMESTAMP NOT NULL
+        )''')
+
         conn.commit()
         print("Base de datos PostgreSQL actualizada con éxito!")
     except Exception as e:
@@ -123,6 +130,41 @@ def obtener_usuario_por_id(id_usuario):
     conn = conectar()
     try:
         return fetch_one(conn, 'SELECT * FROM usuarios WHERE id_usuario = %s', (id_usuario,))
+    finally:
+        conn.close()
+
+def actualizar_contraseña(id_usuario, nueva_hash):
+    conn = conectar()
+    try:
+        execute(conn, 'UPDATE usuarios SET contraseña = %s WHERE id_usuario = %s', (nueva_hash, id_usuario))
+        conn.commit()
+    finally:
+        conn.close()
+
+def guardar_reset_token(id_usuario, token, expira):
+    conn = conectar()
+    try:
+        execute(conn, 'INSERT INTO reset_tokens (id_usuario, token, expira) VALUES (%s,%s,%s)',
+                (id_usuario, token, expira))
+        conn.commit()
+    finally:
+        conn.close()
+
+def obtener_usuario_por_token(token):
+    conn = conectar()
+    try:
+        r = fetch_one(conn,
+            'SELECT u.* FROM usuarios u JOIN reset_tokens rt ON u.id_usuario = rt.id_usuario WHERE rt.token = %s AND rt.expira > NOW()',
+            (token,))
+        return r
+    finally:
+        conn.close()
+
+def eliminar_token(token):
+    conn = conectar()
+    try:
+        execute(conn, 'DELETE FROM reset_tokens WHERE token = %s', (token,))
+        conn.commit()
     finally:
         conn.close()
 

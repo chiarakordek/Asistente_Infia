@@ -13,9 +13,10 @@
   <nav class="navbar navbar-expand navbar-dark shadow-sm sticky-top">
     <div class="container-fluid px-3">
       <span class="navbar-brand fw-bold">Asistente Informes</span>
-      <div class="navbar-nav ms-auto flex-row gap-2">
-        <a class="btn btn-sm btn-outline-light fw-medium" href="/actividades">Actividades</a>
-        <a class="btn btn-sm btn-outline-light fw-medium" href="/unidades">Unidades</a>
+      <div class="navbar-nav ms-auto flex-row gap-1">
+        <a class="btn btn-sm btn-outline-light fw-medium" href="/actividades">Act</a>
+        <a class="btn btn-sm btn-outline-light fw-medium" href="/unidades">UD</a>
+        <a class="btn btn-sm btn-outline-light fw-medium" href="/config" title="Configuración">⚙️</a>
         <button class="btn btn-sm btn-outline-light fw-medium" onclick="logout()">Salir</button>
       </div>
     </div>
@@ -54,7 +55,6 @@
       <div class="d-flex gap-2">
         <button class="btn btn-sm btn-outline-primary fw-bold" onclick="mostrarModalAlumno()">+ Alumno</button>
         <button class="btn btn-sm btn-outline-success fw-bold" onclick="cargarVarios()">+ Varios</button>
-        <a class="btn btn-sm btn-outline-info fw-bold" href="/api/export/observaciones.csv">CSV</a>
       </div>
     </div>
 
