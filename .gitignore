@@ -5,9 +5,8 @@ informes_jardin.db
 *.db-wal
 *.db-shm
 
-# Claves de API
-config.py
-src/config.py
+# Claves de API (solo el ejemplo, config.py va a git porque tiene defaults placeholder)
+config.py.example
 
 # Audios subidos
 static/audios/*.webm
