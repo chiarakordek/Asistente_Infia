@@ -649,6 +649,7 @@ async function cargarActividades() {
           <div class="flex-grow-1 me-2" style="min-width:0">
             <div class="fw-medium d-flex align-items-center gap-2">
               <span class="act-nombre-texto">${a.nombre}</span>
+              ${a.unidad_titulo ? `<span class="badge bg-light text-muted fw-normal" style="font-size:0.65rem">${a.unidad_titulo}</span>` : ''}
             </div>
           </div>
           <div class="d-flex gap-1 flex-shrink-0">
@@ -666,6 +667,8 @@ async function cargarActividades() {
 async function guardarActividadesMulti() {
   const textarea = document.getElementById('bulkActividades');
   const areaDefault = document.getElementById('bulkArea').value;
+  const unidadSelect = document.getElementById('bulkUnidad');
+  const idUnidad = unidadSelect ? parseInt(unidadSelect.value) || null : null;
   const lines = textarea.value.trim().split('\n').filter(Boolean);
   if (!lines.length) return mostrarToast('Pegá al menos una actividad', 'warning');
 
@@ -681,7 +684,7 @@ async function guardarActividadesMulti() {
   });
 
   try {
-    const r = await api('POST', '/api/actividades/multi', { actividades });
+    const r = await api('POST', '/api/actividades/multi', { actividades, id_unidad: idUnidad });
     textarea.value = '';
     mostrarToast(`${r.count} actividades cargadas`);
     cargarActividades();

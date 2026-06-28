@@ -99,7 +99,8 @@ def dashboard_page():
 @login_required
 def actividades_page():
     user = obtener_usuario_por_id(session['user_id'])
-    return render_template('actividades.html', user=user, areas=areas_para(session['user_id']))
+    unidades = obtener_unidades(session['user_id'])
+    return render_template('actividades.html', user=user, areas=areas_para(session['user_id']), unidades=unidades)
 
 @app.route('/alumno/<int:id_alumno>')
 @login_required
@@ -214,7 +215,7 @@ def api_crear_actividades_multi():
     actividades = data.get('actividades', [])
     if not actividades:
         return jsonify(error='No hay actividades'), 400
-    ids = crear_actividades_multi(session['user_id'], actividades, data.get('fecha'))
+    ids = crear_actividades_multi(session['user_id'], actividades, data.get('fecha'), data.get('id_unidad'))
     return jsonify(ids=ids, count=len(ids)), 201
 
 # ─── API: OBSERVACIONES ──────────────────
@@ -420,14 +421,6 @@ def api_actualizar_unidad(id_unidad):
 def api_eliminar_unidad(id_unidad):
     eliminar_unidad(id_unidad, session['user_id'])
     return jsonify(ok=True)
-
-# ─── PÁGINA: UNIDADES ─────────────────────
-
-@app.route('/unidades')
-@login_required
-def unidades_page():
-    user = obtener_usuario_por_id(session['user_id'])
-    return render_template('unidades.html', user=user)
 
 # ─── API: STATS ───────────────────────────
 

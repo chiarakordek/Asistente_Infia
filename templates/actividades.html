@@ -15,7 +15,6 @@
       <span class="navbar-brand fw-bold">Actividades</span>
       <div class="navbar-nav ms-auto flex-row gap-1">
         <a class="btn btn-sm btn-outline-light fw-medium" href="/dashboard">Alumnos</a>
-        <a class="btn btn-sm btn-outline-light fw-medium" href="/unidades">UD</a>
         <a class="btn btn-sm btn-outline-light fw-medium" href="/config" title="Configuración">⚙️</a>
         <button class="btn btn-sm btn-outline-light fw-medium" onclick="logout()">Salir</button>
       </div>
@@ -36,6 +35,15 @@
           <select id="bulkArea" class="form-select">
             {% for a in areas %}
             <option>{{ a }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col">
+          <label class="form-label small text-muted">Unidad didáctica</label>
+          <select id="bulkUnidad" class="form-select">
+            <option value="">— Sin unidad —</option>
+            {% for u in unidades %}
+            <option value="{{ u.id_unidad }}">{{ u.titulo }}</option>
             {% endfor %}
           </select>
         </div>

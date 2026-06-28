@@ -243,15 +243,15 @@ def actualizar_actividad(id_actividad, id_usuario, nombre=None, area=None):
     finally:
         conn.close()
 
-def crear_actividades_multi(id_usuario, actividades, fecha=None):
+def crear_actividades_multi(id_usuario, actividades, fecha=None, id_unidad=None):
     conn = conectar()
     ids = []
     try:
         f = fecha or date.today().isoformat()
         for act in actividades:
             uid = execute_return(conn,
-                'INSERT INTO actividades (id_usuario, nombre, area, fecha) VALUES (%s,%s,%s,%s) RETURNING id_actividad',
-                (id_usuario, act['nombre'], act.get('area', 'Identidad y Convivencia'), f))
+                'INSERT INTO actividades (id_usuario, nombre, area, fecha, id_unidad) VALUES (%s,%s,%s,%s,%s) RETURNING id_actividad',
+                (id_usuario, act['nombre'], act.get('area', 'Identidad y Convivencia'), f, id_unidad))
             ids.append(uid)
         conn.commit()
         return ids
