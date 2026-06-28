@@ -133,27 +133,41 @@ async function cargarAlumnos() {
     }
     c.innerHTML = alumnos.map(a => `
       <div class="alumno-item" data-id="${a.id_alumno}">
-        <div class="row align-items-center gx-2 gy-1">
-          <div class="col-12 col-sm-4">
-            <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none">${a.apellido}, ${a.nombre}</a>
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+          <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none">${a.apellido}, ${a.nombre}</a>
+          <div class="d-flex gap-1 flex-shrink-0">
+            <button class="btn btn-sm btn-outline-success btn-record" data-alumno="${a.id_alumno}" onclick="toggleRecord(this)" title="Grabar audio">🎤</button>
+            <button class="btn btn-sm btn-primary fw-bold" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar">💾</button>
+            <button class="btn btn-sm btn-outline-info" onclick="verObs(${a.id_alumno})" title="Ver observaciones">📄</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="eliminarAlumno(${a.id_alumno})" title="Eliminar">✕</button>
           </div>
-          <div class="col-7 col-sm-5">
-            <select class="form-select form-select-sm actividad-select" data-alumno="${a.id_alumno}">
-              <option value="">Seleccionar actividad</option>
-              ${actividadesGlobales.map(act => `<option value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</option>`).join('')}
-            </select>
-          </div>
-          <div class="col-5 col-sm-3">
-            <div class="d-flex gap-1 justify-content-end">
-              <button class="btn btn-sm btn-outline-success btn-record" data-alumno="${a.id_alumno}" onclick="toggleRecord(this)" title="Grabar audio">🎤</button>
-              <button class="btn btn-sm btn-primary fw-bold" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar">💾</button>
-              <button class="btn btn-sm btn-outline-info" onclick="verObs(${a.id_alumno})" title="Ver observaciones">📄</button>
-              <button class="btn btn-sm btn-outline-danger" onclick="eliminarAlumno(${a.id_alumno})" title="Eliminar">✕</button>
-            </div>
-          </div>
+        </div>
+        <div class="dropdown actividad-dropdown" data-alumno="${a.id_alumno}">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle text-start w-100" type="button" data-bs-toggle="dropdown">
+            <span class="actividad-label">Seleccionar actividad</span>
+          </button>
+          <ul class="dropdown-menu w-100" style="max-height:40vh;overflow-y:auto">
+            <li><a class="dropdown-item" href="#" data-value="">— Sin actividad —</a></li>
+            ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
+          </ul>
         </div>
       </div>
     `).join('');
+    // Attach dropdown item click handlers
+    document.querySelectorAll('.actividad-dropdown .dropdown-item').forEach(el => {
+      el.addEventListener('click', e => {
+        e.preventDefault();
+        const dd = el.closest('.actividad-dropdown');
+        const btn = dd.querySelector('.dropdown-toggle');
+        const label = dd.querySelector('.actividad-label');
+        const value = el.dataset.value;
+        const text = value ? el.textContent : 'Seleccionar actividad';
+        dd.dataset.selected = value;
+        label.textContent = text;
+        btn.classList.toggle('btn-outline-primary', !!value);
+        btn.classList.toggle('btn-outline-secondary', !value);
+      });
+    });
   } catch (e) {
     c.innerHTML = `<div class="alert alert-danger py-2 small">Error: ${e.message}</div>`;
   }
@@ -166,17 +180,19 @@ async function cargarActividadesSelect() {
 }
 
 async function guardarObs(idAlumno, btn) {
-  const sel = document.querySelector(`.actividad-select[data-alumno="${idAlumno}"]`);
-  if (!sel || !sel.value) {
+  const dd = document.querySelector(`.actividad-dropdown[data-alumno="${idAlumno}"]`);
+  const value = dd ? dd.dataset.selected : '';
+  if (!value) {
     mostrarToast('Seleccioná una actividad primero', 'warning');
     return;
   }
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  const label = dd.querySelector('.actividad-label');
   try {
     await api('POST', '/api/observaciones', {
-      id_alumno: idAlumno, id_actividad: parseInt(sel.value),
-      nota_cruda: `Actividad completada: ${sel.options[sel.selectedIndex].text}`,
+      id_alumno: idAlumno, id_actividad: parseInt(value),
+      nota_cruda: `Actividad completada: ${label.textContent}`,
       tipo: 'texto'
     });
     mostrarToast('Observación guardada');
@@ -197,14 +213,14 @@ async function toggleRecord(btn) {
     return;
   }
   const idAlumno = parseInt(btn.dataset.alumno);
-  const sel = document.querySelector(`.actividad-select[data-alumno="${idAlumno}"]`);
+  const dd = document.querySelector(`.actividad-dropdown[data-alumno="${idAlumno}"]`);
+  const idActividad = dd && dd.dataset.selected ? parseInt(dd.dataset.selected) : null;
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
     const mr = new MediaRecorder(stream, { mimeType });
     const chunks = [];
-    const idActividad = sel && sel.value ? parseInt(sel.value) : null;
 
     recordingState = { mediaRecorder: mr, chunks, alumnoId: idAlumno, actividadId: idActividad, button: btn };
 
