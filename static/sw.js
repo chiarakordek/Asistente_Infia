@@ -1,4 +1,4 @@
-const CACHE = 'asistente-v4';
+const CACHE = 'asistente-v5';
 const OFFLINE = '/offline';
 
 const PRECACHE = [
@@ -6,7 +6,7 @@ const PRECACHE = [
   '/login',
   '/registro',
   '/static/css/styles.css?v=4',
-  '/static/js/app.js',
+  '/static/js/app.js?v=2',
   '/static/manifest.json',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
