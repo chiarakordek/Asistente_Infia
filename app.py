@@ -133,6 +133,12 @@ def actividades_page():
     unidades = obtener_unidades(session['user_id'])
     return render_template('actividades.html', user=user, areas=areas_para(session['user_id']), unidades=unidades)
 
+@app.route('/unidades')
+@login_required
+def unidades_page():
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('unidades.html', user=user)
+
 @app.route('/alumno/<int:id_alumno>')
 @login_required
 def alumno_page(id_alumno):
