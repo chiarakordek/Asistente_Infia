@@ -7,10 +7,16 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
 )
 
+MIN_ARCHIVO_BYTES = 100
+
 def transcribir_audio(id_alumno, id_actividad, ruta_audio, id_usuario=None):
     if not os.path.exists(ruta_audio):
         print(f"transcriptor: archivo no existe {ruta_audio}")
         return "Audio grabado (archivo no encontrado)"
+    tamano = os.path.getsize(ruta_audio)
+    if tamano < MIN_ARCHIVO_BYTES:
+        print(f"transcriptor: archivo muy chico ({tamano}b), no se envía a Groq")
+        return "Audio grabado (muy corto, no se pudo transcribir)"
     try:
         with open(ruta_audio, "rb") as f:
             transcripcion = client.audio.transcriptions.create(
@@ -18,7 +24,7 @@ def transcribir_audio(id_alumno, id_actividad, ruta_audio, id_usuario=None):
             )
         texto = transcripcion.text.strip()
         if texto:
-            print(f"transcriptor: OK → '{texto[:80]}'")
+            print(f"transcriptor: OK ({tamano}b) → '{texto[:80]}'")
             return texto
         print("transcriptor: transcripción vacía")
         return "Audio grabado (sin transcripción)"

@@ -239,19 +239,31 @@ async function toggleRecord(btn) {
   const idActividad = dd && dd.dataset.selected ? parseInt(dd.dataset.selected) : null;
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 }
+    });
     const mimeType = mejorMimeType();
     const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
     const chunks = [];
+    const startTime = Date.now();
 
-    recordingState = { mediaRecorder: mr, chunks, alumnoId: idAlumno, actividadId: idActividad, button: btn };
+    recordingState = { mediaRecorder: mr, chunks, alumnoId: idAlumno, actividadId: idActividad, button: btn, startTime };
 
     mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
     mr.onstop = async () => {
       btn.classList.remove('recording');
       btn.innerHTML = '🎤';
-      const blob = new Blob(chunks, { type: mr.mimeType });
       stream.getTracks().forEach(t => t.stop());
+      const duracion = (Date.now() - startTime) / 1000;
+      if (duracion < 1) {
+        mostrarToast('Grabación muy corta. Mantené presionado al menos 1 segundo.', 'warning');
+        return;
+      }
+      const blob = new Blob(chunks, { type: mr.mimeType });
+      if (blob.size < 500) {
+        mostrarToast('Audio muy pequeño. Probá de nuevo hablando más cerca del micrófono.', 'warning');
+        return;
+      }
       if (blob.size > 0) {
         await subirAudio(blob, idAlumno, idActividad);
       }
@@ -260,7 +272,7 @@ async function toggleRecord(btn) {
     mr.start();
     btn.classList.add('recording');
     btn.innerHTML = '⏹';
-    mostrarToast('Grabando... tocá de nuevo para detener', 'info');
+    mostrarToast('Grabando... toca el botón rojo para detener', 'info');
   } catch (e) {
     mostrarToast('Error al acceder al micrófono: ' + e.message, 'danger');
   }
