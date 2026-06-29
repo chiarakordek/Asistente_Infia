@@ -5,7 +5,7 @@ const PRECACHE = [
   OFFLINE,
   '/login',
   '/registro',
-  '/static/css/styles.css?v=5',
+  '/static/css/styles.css?v=4',
   '/static/js/app.js?v=2',
   '/static/manifest.json',
   '/static/icons/icon-192.png',
