@@ -208,8 +208,28 @@ async function guardarObs(idAlumno, btn) {
 }
 
 // ─── GRABACIÓN DE AUDIO ─────────────────
+function mejorMimeType() {
+  const tipos = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/mp4;codecs=mp4a.40.2',
+    'audio/mp4',
+    'audio/aac',
+    'audio/ogg;codecs=opus',
+  ];
+  for (const t of tipos) {
+    if (MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return '';
+}
+
+function extDesdeMime(mime) {
+  if (mime.includes('mp4') || mime.includes('aac')) return 'mp4';
+  if (mime.includes('ogg')) return 'ogg';
+  return 'webm';
+}
+
 async function toggleRecord(btn) {
-  // Si ya está grabando para este botón, detener
   if (recordingState.mediaRecorder && recordingState.mediaRecorder.state === 'recording') {
     detenerGrabacion();
     return;
@@ -220,8 +240,8 @@ async function toggleRecord(btn) {
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
-    const mr = new MediaRecorder(stream, { mimeType });
+    const mimeType = mejorMimeType();
+    const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
     const chunks = [];
 
     recordingState = { mediaRecorder: mr, chunks, alumnoId: idAlumno, actividadId: idActividad, button: btn };
@@ -253,8 +273,9 @@ function detenerGrabacion() {
 }
 
 async function subirAudio(blob, idAlumno, idActividad) {
+  const ext = extDesdeMime(blob.type);
   const fd = new FormData();
-  fd.append('audio', blob, `grabacion_${Date.now()}.webm`);
+  fd.append('audio', blob, `grabacion_${Date.now()}.${ext}`);
   fd.append('id_alumno', idAlumno);
   if (idActividad) fd.append('id_actividad', idActividad);
   try {
@@ -408,7 +429,7 @@ async function cargarObsAlumno(idAlumno) {
           ${o.ruta_audio ? `
             <div class="mt-2">
               <audio controls preload="none" class="w-100" style="max-width:300px;height:36px">
-                <source src="${o.ruta_audio}" type="audio/webm">
+                <source src="${o.ruta_audio}">
               </audio>
             </div>
           ` : ''}
@@ -543,7 +564,7 @@ async function cargarObsHoy() {
         ${o.tipo === 'audio' && o.ruta_audio ? `
           <div class="mt-1">
             <audio controls preload="none" class="w-100" style="max-width:300px;height:32px">
-              <source src="${o.ruta_audio}" type="audio/webm">
+              <source src="${o.ruta_audio}">
             </audio>
           </div>
         ` : ''}
@@ -791,3 +812,4 @@ window.addEventListener('appinstalled', () => {
   installPrompt = null;
   document.getElementById('installBanner')?.classList.remove('show');
 });
+

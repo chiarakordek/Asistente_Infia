@@ -6,7 +6,7 @@ const PRECACHE = [
   '/login',
   '/registro',
   '/static/css/styles.css?v=4',
-  '/static/js/app.js?v=2',
+  '/static/js/app.js?v=3',
   '/static/manifest.json',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
@@ -63,3 +63,4 @@ self.addEventListener('fetch', e => {
     }).catch(() => caches.match(e.request).then(r => r || caches.match(OFFLINE)))
   );
 });
+
