@@ -44,7 +44,7 @@ def seguridad_headers(resp):
     resp.headers['X-Frame-Options'] = 'DENY'
     resp.headers['X-XSS-Protection'] = '1; mode=block'
     resp.headers['Referrer-Policy'] = 'same-origin'
-    csp = "default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self'"
+    csp = "default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net; media-src 'self' blob:; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:"
     resp.headers['Content-Security-Policy'] = csp
     return resp
 
