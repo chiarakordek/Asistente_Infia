@@ -21,31 +21,11 @@ if not os.environ.get('FLASK_DEBUG'):
 AUDIO_DIR = os.path.join(app.static_folder, 'audios')
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
-# ─── Seguridad: rate limiting simple ────
-from collections import defaultdict
-from datetime import datetime, timedelta
-_login_intentos = defaultdict(list)
-_MAX_INTENTOS = 5
-_VENTANA_MINUTOS = 15
-
-def revisar_rate_limit(ip):
-    ahora = datetime.now()
-    intentos = [t for t in _login_intentos[ip] if ahora - t < timedelta(minutes=_VENTANA_MINUTOS)]
-    _login_intentos[ip] = intentos
-    if len(intentos) >= _MAX_INTENTOS:
-        return False
-    _login_intentos[ip].append(ahora)
-    return True
-
-# ─── Security headers ────────────────────
+# ─── Security headers básicos ────────────
 @app.after_request
 def seguridad_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
     resp.headers['X-Frame-Options'] = 'DENY'
-    resp.headers['X-XSS-Protection'] = '1; mode=block'
-    resp.headers['Referrer-Policy'] = 'same-origin'
-    csp = "default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self'"
-    resp.headers['Content-Security-Policy'] = csp
     return resp
 
 # ─── Imports del backend ─────────────────
@@ -148,9 +128,6 @@ def alumno_page(id_alumno):
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
-    ip = request.remote_addr or 'unknown'
-    if not revisar_rate_limit(ip):
-        return jsonify(error='Demasiados intentos. Esperá 15 minutos.'), 429
     data = request.json
     email = (data.get('email') or '').strip()
     contraseña = data.get('contraseña') or ''
@@ -161,8 +138,6 @@ def api_login():
         return jsonify(error='Email o contraseña incorrectos'), 401
     session.permanent = True
     session['user_id'] = user['id_usuario']
-    # Limpiar intentos al login exitoso
-    _login_intentos[ip] = []
     return jsonify(ok=True, nombre=user['nombre'])
 
 @app.route('/api/register', methods=['POST'])
