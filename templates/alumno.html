@@ -17,11 +17,12 @@
   <nav class="navbar navbar-expand navbar-dark shadow-sm sticky-top">
     <div class="container-fluid px-3">
       <span class="navbar-brand fw-bold">{{ alumno.apellido }}, {{ alumno.nombre }}</span>
-      <div class="navbar-nav ms-auto flex-row gap-1">
-        <a class="btn btn-sm btn-outline-light fw-medium" href="/dashboard">Alumnos</a>
-        <a class="btn btn-sm btn-outline-light fw-medium" href="/unidades">Unid</a>
-        <a class="btn btn-sm btn-outline-light fw-medium" href="/config" title="Configuración">⚙️</a>
-        <button class="btn btn-sm btn-outline-light fw-medium" onclick="logout()">Salir</button>
+      <div class="navbar-nav ms-auto flex-row flex-wrap">
+        <a class="btn btn-sm btn-outline-light" href="/dashboard">Alumnos</a>
+        <a class="btn btn-sm btn-outline-light" href="/actividades">Actividades</a>
+        <a class="btn btn-sm btn-outline-light" href="/unidades">Unidades</a>
+        <a class="btn btn-sm btn-outline-light" href="/perfil">Perfil</a>
+        <button class="btn btn-sm btn-outline-light btn-logout" onclick="logout()">Salir</button>
       </div>
     </div>
   </nav>
