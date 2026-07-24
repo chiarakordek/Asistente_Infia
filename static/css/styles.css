@@ -223,6 +223,7 @@ body {
 .btn-icon {
   width: 30px;
   height: 30px;
+  min-height: 30px;
   padding: 0;
   border-radius: 50%;
 }
@@ -313,6 +314,12 @@ body {
 }
 
 .form-control-sm {
+  min-height: 30px;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.78rem;
+}
+
+.form-select-sm {
   min-height: 30px;
   padding: 0.2rem 0.45rem;
   font-size: 0.78rem;
