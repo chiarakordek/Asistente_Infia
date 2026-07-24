@@ -45,17 +45,11 @@
     <div id="tabAlumnos">
       <div class="section-header">
         <h6>Mis alumnos</h6>
-      </div>
-
-      <div class="card p-3 mb-3" id="addAlumnosCard">
-        <div id="alumnoRows"></div>
-        <button class="btn btn-sm btn-outline-primary mt-1" onclick="agregarFilaAlumno()">+ Agregar alumno</button>
-        <div class="d-flex gap-2 mt-3">
-          <button class="btn btn-sm btn-outline-secondary flex-grow-1" onclick="limpiarAlumnos()">Limpiar</button>
-          <button class="btn btn-sm btn-primary flex-grow-1" onclick="guardarAlumnos()">Guardar</button>
+        <div class="d-flex gap-1">
+          <button class="btn btn-sm btn-outline-primary" onclick="cargarVarios()">+ Varios</button>
+          <button class="btn btn-sm btn-primary" onclick="mostrarModalAlumno()">+ Agregar</button>
         </div>
       </div>
-
       <div id="alumnosContainer"><div class="text-center py-4 text-muted">Cargando...</div></div>
     </div>
 
@@ -66,12 +60,57 @@
     </div>
   </div>
 
+  <!-- Modal: Agregar 1 alumno -->
+  <div class="modal fade" id="modalAlumno" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title">Nuevo alumno</h6>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label">Nombre</label>
+            <input type="text" id="aNombre" class="form-control">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Apellido</label>
+            <input type="text" id="aApellido" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-sm btn-primary" onclick="guardarAlumno()">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Agregar varios -->
+  <div class="modal fade" id="modalVarios" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title">Agregar varios alumnos</h6>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-2">Un alumno por línea. Formato: <code>Nombre Apellido</code></p>
+          <textarea id="listaAlumnos" class="form-control" rows="8" placeholder="Juan Pérez&#10;María López&#10;Carlos García"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-sm btn-primary" onclick="guardarVarios()">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/static/js/app.js?v=4"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       cargarDashboard();
-      agregarFilaAlumno();
       document.querySelectorAll('#dashboardTabs .nav-link').forEach(tab => {
         tab.addEventListener('click', () => {
           document.querySelectorAll('#dashboardTabs .nav-link').forEach(t => t.classList.remove('active'));
@@ -83,39 +122,53 @@
       });
     });
 
-    function agregarFilaAlumno() {
-      const d = document.createElement('div');
-      d.className = 'row g-1 mb-2 align-items-end alumno-add-row';
-      d.innerHTML = `
-        <div class="col-5">
-          <input type="text" class="form-control form-control-sm al-nombre" placeholder="Nombre">
-        </div>
-        <div class="col-5">
-          <input type="text" class="form-control form-control-sm al-apellido" placeholder="Apellido">
-        </div>
-        <div class="col-2 text-end">
-          <button class="btn btn-sm btn-outline-danger btn-icon" onclick="this.closest('.alumno-add-row').remove()" title="Quitar">✕</button>
-        </div>`;
-      document.getElementById('alumnoRows').appendChild(d);
+    let modalAlumno, modalVarios;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      modalAlumno = new bootstrap.Modal('#modalAlumno');
+      modalVarios = new bootstrap.Modal('#modalVarios');
+    });
+
+    function mostrarModalAlumno() {
+      document.getElementById('aNombre').value = '';
+      document.getElementById('aApellido').value = '';
+      modalAlumno.show();
     }
 
-    function limpiarAlumnos() {
-      document.getElementById('alumnoRows').innerHTML = '';
-      agregarFilaAlumno();
+    async function guardarAlumno() {
+      const nombre = document.getElementById('aNombre').value.trim();
+      const apellido = document.getElementById('aApellido').value.trim();
+      if (!nombre || !apellido) return mostrarToast('Completá nombre y apellido', 'warning');
+      try {
+        await api('POST', '/api/alumnos', { nombre, apellido });
+        modalAlumno.hide();
+        mostrarToast('Alumno agregado');
+        cargarAlumnos();
+        cargarStats();
+      } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
     }
 
-    async function guardarAlumnos() {
+    function cargarVarios() {
+      document.getElementById('listaAlumnos').value = '';
+      modalVarios.show();
+    }
+
+    async function guardarVarios() {
+      const lines = document.getElementById('listaAlumnos').value.trim().split('\n').filter(Boolean);
+      if (!lines.length) return mostrarToast('Pegá al menos un alumno', 'warning');
       const alumnos = [];
-      document.querySelectorAll('.alumno-add-row').forEach(row => {
-        const nombre = row.querySelector('.al-nombre').value.trim();
-        const apellido = row.querySelector('.al-apellido').value.trim();
-        if (nombre && apellido) alumnos.push({ nombre, apellido });
-      });
-      if (!alumnos.length) return mostrarToast('Completá al menos un alumno', 'warning');
+      for (const l of lines) {
+        const partes = l.trim().split(/\s+/);
+        if (partes.length < 2) continue;
+        const apellido = partes.pop();
+        const nombre = partes.join(' ');
+        alumnos.push({ nombre, apellido });
+      }
+      if (!alumnos.length) return mostrarToast('Formato: Nombre Apellido (uno por línea)', 'warning');
       try {
         await api('POST', '/api/alumnos/multi', { alumnos });
-        mostrarToast(alumnos.length + ' alumno(s) guardado(s)');
-        limpiarAlumnos();
+        modalVarios.hide();
+        mostrarToast(alumnos.length + ' alumno(s) cargado(s)');
         cargarAlumnos();
         cargarStats();
       } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
@@ -123,6 +176,3 @@
   </script>
 </body>
 </html>
-
-
-
