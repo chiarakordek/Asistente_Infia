@@ -151,7 +151,7 @@ async function cargarAlumnos() {
               ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
             </ul>
           </div>
-          <button class="btn btn-sm btn-primary fw-bold btn-save" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar">💾</button>
+          <button class="btn btn-sm btn-primary btn-save" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar">💾</button>
         </div>
       </div>
     `).join('');
@@ -330,7 +330,7 @@ function toggleSeleccionObs() {
   const btnTodo = document.getElementById('btnEliminarTodo');
   if (seleccionMode) {
     btn.textContent = 'Cancelar';
-    btn.className = 'btn btn-sm btn-secondary fw-bold';
+    btn.className = 'btn btn-sm btn-secondary';
     btnEliminar.classList.remove('d-none');
     btnTodo.classList.remove('d-none');
     mostrarCheckboxes();
@@ -428,7 +428,7 @@ async function cargarObsAlumno(idAlumno) {
       grupos[fecha].push(o);
     });
     c.innerHTML = Object.entries(grupos).map(([fecha, lista]) => `
-      <h6 class="text-muted fw-bold mt-3 mb-2 small text-uppercase">${fecha}</h6>
+      <h6 class="text-muted mt-3 mb-2 small text-uppercase">${fecha}</h6>
       ${lista.map(o => `
         <div class="obs-item ${o.tipo}" data-obs-id="${o.id_observacion}">
           <div class="d-flex justify-content-between align-items-start gap-2">
@@ -495,7 +495,7 @@ async function editarInforme(idAlumno) {
     container.innerHTML = `
       <textarea class="informe-edit" id="informeTextarea">${contenido.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
       <div class="d-flex gap-2 mt-2 justify-content-end">
-        <button class="btn btn-sm btn-success fw-bold" onclick="guardarInformeEdit(${idAlumno})">💾 Guardar</button>
+        <button class="btn btn-sm btn-success" onclick="guardarInformeEdit(${idAlumno})">💾 Guardar</button>
         <button class="btn btn-sm btn-outline-secondary" onclick="recargarInforme(${idAlumno})">Cancelar</button>
       </div>
     `;

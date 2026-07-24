@@ -27,12 +27,20 @@
 
   <div class="container-fluid px-3 py-3" style="max-width:800px">
     <div class="section-header mb-3">
-      <h6 class="fw-bold">Crear actividades</h6>
+      <h6>Crear actividades</h6>
     </div>
 
     <div class="card p-3 mb-3">
+      <div id="actRows"></div>
+
+      <div class="d-flex gap-2 mt-2">
+        <button class="btn btn-sm btn-outline-primary flex-grow-1" onclick="agregarFila()">+ Agregar actividad</button>
+      </div>
+
+      <hr class="my-3">
+
       <div class="mb-2">
-        <label class="form-label">Unidad didáctica (opcional)</label>
+        <label class="form-label">Asociar a unidad (opcional)</label>
         <select id="actUnidad" class="form-select form-select-sm">
           <option value="">— Sin unidad —</option>
           {% for u in unidades %}
@@ -41,23 +49,9 @@
         </select>
       </div>
 
-      <div id="areasContainer">
-        {% for area in areas %}
-        <div class="mb-2 area-block" data-area="{{ area }}">
-          <label class="form-label fw-semibold small">{{ area }}</label>
-          <div class="d-flex gap-1">
-            <input type="text" class="form-control form-control-sm act-input" data-area="{{ area }}" placeholder="Nombre de la actividad">
-            <button class="btn btn-sm btn-outline-danger btn-icon" onclick="this.closest('.area-block').remove()" title="Quitar">✕</button>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-
-      <button class="btn btn-sm btn-outline-primary mt-1" onclick="agregarArea()">+ Agregar área</button>
-
       <div class="d-flex gap-2 mt-3">
-        <button class="btn btn-sm btn-outline-secondary flex-grow-1" onclick="limpiarCampos()">Limpiar</button>
-        <button class="btn btn-sm btn-primary fw-bold flex-grow-1" onclick="guardarActividades()">Guardar actividades</button>
+        <button class="btn btn-sm btn-outline-secondary flex-grow-1" onclick="limpiarTodo()">Limpiar</button>
+        <button class="btn btn-sm btn-primary flex-grow-1" onclick="guardarActividades()">Guardar</button>
       </div>
     </div>
 
@@ -70,38 +64,49 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/static/js/app.js?v=4"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', cargarActividades);
+    const areas = {{ areas | tojson }};
 
-    function agregarArea() {
-      const nombre = prompt('Nombre del área:');
-      if (!nombre) return;
+    document.addEventListener('DOMContentLoaded', () => {
+      agregarFila();
+      cargarActividades();
+    });
+
+    function agregarFila() {
       const d = document.createElement('div');
-      d.className = 'mb-2 area-block';
-      d.dataset.area = nombre;
-      d.innerHTML = `<label class="form-label fw-semibold small">${nombre}</label>
-        <div class="d-flex gap-1">
-          <input type="text" class="form-control form-control-sm act-input" data-area="${nombre}" placeholder="Nombre de la actividad">
-          <button class="btn btn-sm btn-outline-danger btn-icon" onclick="this.closest('.area-block').remove()" title="Quitar">✕</button>
+      d.className = 'row g-1 mb-2 align-items-end act-row';
+      d.innerHTML = `
+        <div class="col-7">
+          <input type="text" class="form-control form-control-sm act-nombre" placeholder="Nombre de la actividad">
+        </div>
+        <div class="col-4">
+          <select class="form-select form-select-sm act-area">
+            ${areas.map(a => `<option value="${a}">${a}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-1 text-end">
+          <button class="btn btn-sm btn-outline-danger btn-icon" onclick="this.closest('.act-row').remove()" title="Quitar">✕</button>
         </div>`;
-      document.getElementById('areasContainer').appendChild(d);
+      document.getElementById('actRows').appendChild(d);
     }
 
-    function limpiarCampos() {
-      document.querySelectorAll('.act-input').forEach(i => i.value = '');
+    function limpiarTodo() {
+      document.getElementById('actRows').innerHTML = '';
+      agregarFila();
     }
 
     async function guardarActividades() {
       const unidad = document.getElementById('actUnidad').value || null;
       const actividades = [];
-      document.querySelectorAll('.act-input').forEach(inp => {
-        const nombre = inp.value.trim();
-        if (nombre) actividades.push({ nombre, area: inp.dataset.area });
+      document.querySelectorAll('.act-row').forEach(row => {
+        const nombre = row.querySelector('.act-nombre').value.trim();
+        const area = row.querySelector('.act-area').value;
+        if (nombre) actividades.push({ nombre, area });
       });
       if (!actividades.length) return mostrarToast('Escribí al menos una actividad', 'warning');
       try {
         await api('POST', '/api/actividades/multi', { actividades, id_unidad: unidad ? parseInt(unidad) : null });
         mostrarToast(actividades.length + ' actividad(es) guardada(s)');
-        limpiarCampos();
+        limpiarTodo();
         cargarActividades();
       } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
     }
@@ -117,9 +122,9 @@
         c.innerHTML = acts.map(a => `
           <div class="actividad-card">
             <div>
-              <span class="fw-semibold">${a.nombre}</span>
+              <span>${a.nombre}</span>
               <span class="text-muted small ms-1">${a.area}</span>
-              ${a.unidad_titulo ? `<span class="badge bg-light text-muted fw-normal ms-1" style="font-size:0.65rem">${a.unidad_titulo}</span>` : ''}
+              ${a.unidad_titulo ? `<span class="badge bg-light text-muted ms-1" style="font-size:0.65rem">${a.unidad_titulo}</span>` : ''}
             </div>
             <div class="d-flex gap-1">
               <button class="btn btn-sm btn-outline-secondary btn-icon" onclick="editarActividad(${a.id_actividad},'${a.nombre.replace(/'/g,"\\'")}','${a.area.replace(/'/g,"\\'")}')" title="Editar">✏️</button>

@@ -67,16 +67,15 @@ body {
 }
 
 .nav-link-item {
-  color: rgba(255,255,255,0.75);
+  color: rgba(255,255,255,0.8);
   text-decoration: none;
   font-size: 0.82rem;
-  font-weight: 500;
+  font-weight: 400;
   padding: 0.55rem 0.85rem;
   border-radius: 8px;
   transition: all var(--transition);
   white-space: nowrap;
   position: relative;
-  letter-spacing: 0.01em;
 }
 
 .nav-link-item:hover,
@@ -89,7 +88,7 @@ body {
 .nav-link-item.active {
   color: #fff;
   background: rgba(255,255,255,0.18);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .nav-divider {
@@ -100,21 +99,23 @@ body {
 }
 
 .nav-link-logout {
-  color: rgba(255,255,255,0.6);
+  color: rgba(255,255,255,0.85);
   text-decoration: none;
   font-size: 0.82rem;
-  font-weight: 500;
+  font-weight: 400;
   padding: 0.4rem 0.7rem;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.35);
   transition: all var(--transition);
   white-space: nowrap;
+  background: transparent;
+  cursor: pointer;
 }
 
 .nav-link-logout:hover {
   color: #fff;
-  background: rgba(255,255,255,0.1);
-  border-color: rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.5);
 }
 
 /* ─── Cards ──────────────────────────────── */
@@ -203,7 +204,7 @@ body {
 /* ─── Buttons ────────────────────────────── */
 .btn {
   border-radius: var(--radius-sm);
-  font-weight: 600;
+  font-weight: 500;
   transition: all var(--transition);
   padding: 0.45rem 0.9rem;
   font-size: 0.88rem;
@@ -211,7 +212,6 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  letter-spacing: 0.01em;
 }
 
 .btn-sm {
@@ -330,7 +330,7 @@ body {
 
 .form-label {
   font-size: 0.82rem;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--text-secondary);
   margin-bottom: 0.3rem;
 }
@@ -484,7 +484,7 @@ audio::-webkit-media-controls-panel {
 }
 
 .section-header h6 {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.88rem;
   color: var(--text);
   margin: 0;
@@ -545,7 +545,7 @@ audio::-webkit-media-controls-panel {
 }
 
 /* ─── Headings ───────────────────────────── */
-h5 { font-size: 1.08rem; font-weight: 700; }
+h5 { font-size: 1.08rem; font-weight: 600; }
 h6 { font-size: 0.92rem; }
 
 hr { margin: 1rem 0; opacity: 0.4; }
@@ -602,7 +602,7 @@ hr { margin: 1rem 0; opacity: 0.4; }
 
 .stats-row .card .fs-5 {
   font-size: 1.1rem !important;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .stats-row .card .small {
@@ -659,7 +659,7 @@ hr { margin: 1rem 0; opacity: 0.4; }
 
   .nav-link-logout {
     font-size: 0.7rem;
-    padding: 0.3rem 0.5rem;
+    padding: 0.35rem 0.55rem;
   }
 
   .alumno-item { padding: 0.5rem 0.6rem; margin-bottom: 0.35rem; }

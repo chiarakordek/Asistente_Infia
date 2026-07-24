@@ -29,7 +29,7 @@
     <div class="section-header">
       <h6>{{ alumno.apellido }}, {{ alumno.nombre }}</h6>
       <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-primary fw-bold" id="btnGenerar" onclick="generarInforme({{ alumno.id_alumno }})">
+        <button class="btn btn-sm btn-primary" id="btnGenerar" onclick="generarInforme({{ alumno.id_alumno }})">
           Generar informe
         </button>
       </div>
@@ -45,8 +45,8 @@
     <div class="section-header">
       <h6>Actividades realizadas</h6>
       <div class="d-flex gap-2 align-items-center" id="obsActions">
-        <button class="btn btn-sm btn-outline-danger fw-bold d-none" id="btnEliminarTodo" onclick="eliminarTodas()">Eliminar todo</button>
-        <button class="btn btn-sm btn-outline-danger fw-bold d-none" id="btnEliminarSel" onclick="eliminarSeleccionadas()">Eliminar seleccionadas</button>
+        <button class="btn btn-sm btn-outline-danger d-none" id="btnEliminarTodo" onclick="eliminarTodas()">Eliminar todo</button>
+        <button class="btn btn-sm btn-outline-danger d-none" id="btnEliminarSel" onclick="eliminarSeleccionadas()">Eliminar seleccionadas</button>
         <button class="btn btn-sm btn-outline-danger" id="btnSelectMode" onclick="toggleSeleccionObs()">Eliminar</button>
       </div>
     </div>
@@ -62,3 +62,6 @@
   </script>
 </body>
 </html>
+
+
+

@@ -27,7 +27,7 @@
               </div>
               <div id="errorMsg" class="alert alert-danger d-none py-2 small"></div>
               <div id="successMsg" class="alert alert-success d-none py-2 small"></div>
-              <button type="submit" class="btn btn-primary w-100 fw-bold" id="btnSolicitar">Generar link de recuperación</button>
+              <button type="submit" class="btn btn-primary w-100" id="btnSolicitar">Generar link de recuperación</button>
             </form>
             <hr>
             <p class="text-center small mb-0">
@@ -60,7 +60,7 @@
         if (data.reset_link) {
           okEl.innerHTML = `
             <div class="mb-2">Link generado con éxito:</div>
-            <a href="${data.reset_link}" class="btn btn-sm btn-outline-success w-100 fw-bold">Abrir para crear nueva contraseña</a>
+            <a href="${data.reset_link}" class="btn btn-sm btn-outline-success w-100">Abrir para crear nueva contraseña</a>
             <div class="mt-2 small text-muted">Si no podés hacer clic, copiá esta dirección: <code>${data.reset_link}</code></div>`;
         } else {
           okEl.textContent = data.mensaje || 'Si el email existe, revisá tu correo.';
@@ -77,3 +77,6 @@
   </script>
 </body>
 </html>
+
+
+
