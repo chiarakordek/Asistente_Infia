@@ -16,6 +16,7 @@
       <div class="nav-links">
         <a class="nav-link-item" href="/dashboard">Alumnos</a>
         <a class="nav-link-item active" href="/actividades">Actividades</a>
+        <a class="nav-link-item" href="/areas">Áreas</a>
         <a class="nav-link-item" href="/unidades">Unidades</a>
         <span class="nav-divider"></span>
         <a class="nav-link-item" href="/perfil">Perfil</a>
@@ -81,7 +82,7 @@
         <div class="col-4">
           <select class="form-select form-select-sm act-area">
             <option value="" selected disabled>Seleccionar área</option>
-            ${areas.map(a => `<option value="${a}">${a}</option>`).join('')}
+            ${areas.map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('')}
           </select>
         </div>
         <div class="col-1 text-end">

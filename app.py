@@ -95,8 +95,8 @@ inicializar_bd()
 
 # ─── Helpers ─────────────────────────────
 AREAS_DEFAULT = [
-    'Identidad y Convivencia', 'Lenguaje y Literatura',
-    'Matemáticas', 'Ciencias Sociales, Ciencias Naturales y Tecnología',
+    {'id': 0, 'nombre': 'Identidad y Convivencia'}, {'id': 0, 'nombre': 'Lenguaje y Literatura'},
+    {'id': 0, 'nombre': 'Matemáticas'}, {'id': 0, 'nombre': 'Ciencias Sociales, Ciencias Naturales y Tecnología'},
 ]
 
 def areas_para(user_id):
@@ -163,6 +163,12 @@ def actividades_page():
 def unidades_page():
     user = obtener_usuario_por_id(session['user_id'])
     return render_template('unidades.html', user=user)
+
+@app.route('/areas')
+@login_required
+def areas_page():
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('areas.html', user=user)
 
 @app.route('/alumno/<int:id_alumno>')
 @login_required
@@ -389,6 +395,32 @@ def api_subir_audio():
 @login_required
 def api_areas():
     return jsonify(areas_para(session['user_id']))
+
+@app.route('/api/areas', methods=['POST'])
+@login_required
+def api_crear_area():
+    data = request.json
+    nombre = (data.get('nombre') or '').strip()
+    if not nombre:
+        return jsonify(error='Falta nombre'), 400
+    crear_area(session['user_id'], nombre)
+    return jsonify(ok=True), 201
+
+@app.route('/api/areas/<int:id_area>', methods=['PUT'])
+@login_required
+def api_renombrar_area(id_area):
+    data = request.json
+    nuevo = (data.get('nombre') or '').strip()
+    if not nuevo:
+        return jsonify(error='Falta nombre'), 400
+    renombrar_area(session['user_id'], id_area, nuevo)
+    return jsonify(ok=True)
+
+@app.route('/api/areas/<int:id_area>', methods=['DELETE'])
+@login_required
+def api_eliminar_area(id_area):
+    eliminar_area(session['user_id'], id_area)
+    return jsonify(ok=True)
 
 @app.route('/api/areas/rename', methods=['POST'])
 @login_required

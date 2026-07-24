@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Infia - Áreas</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css?v=6">
+</head>
+<body>
+  <nav class="navbar navbar-expand navbar-dark shadow-sm sticky-top">
+    <div class="container-fluid px-3">
+      <a class="navbar-brand" href="/dashboard">Infia</a>
+      <div class="nav-links">
+        <a class="nav-link-item" href="/dashboard">Alumnos</a>
+        <a class="nav-link-item" href="/actividades">Actividades</a>
+        <a class="nav-link-item active" href="/areas">Áreas</a>
+        <a class="nav-link-item" href="/unidades">Unidades</a>
+        <span class="nav-divider"></span>
+        <a class="nav-link-item" href="/perfil">Perfil</a>
+        <span class="nav-divider"></span>
+        <button class="nav-link-logout" onclick="logout()">Salir</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-3 py-3" style="max-width:800px">
+    <div class="section-header mb-3">
+      <h6>Mis áreas</h6>
+    </div>
+
+    <div class="card p-3 mb-3">
+      <div class="d-flex gap-2">
+        <input type="text" class="form-control form-control-sm" id="nuevaArea" placeholder="Nombre del área" onkeydown="if(event.key==='Enter')agregarArea()">
+        <button class="btn btn-sm btn-primary" onclick="agregarArea()">Agregar</button>
+      </div>
+    </div>
+
+    <div id="areasContainer"><div class="text-center py-4 text-muted">Cargando...</div></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app.js?v=4"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', cargarAreas);
+
+    async function cargarAreas() {
+      try {
+        const areas = await api('GET', '/api/areas');
+        const c = document.getElementById('areasContainer');
+        if (!areas.length) {
+          c.innerHTML = '<div class="text-center py-4 text-muted small">No hay áreas</div>';
+          return;
+        }
+        c.innerHTML = areas.map(a => `
+          <div class="actividad-card">
+            <span>${a.nombre}</span>
+            <div class="d-flex gap-1">
+              <button class="btn btn-sm btn-outline-secondary btn-icon" onclick="editarArea(${a.id},'${a.nombre.replace(/'/g,"\\'")}')" title="Editar">✏️</button>
+              <button class="btn btn-sm btn-outline-danger btn-icon" onclick="eliminarArea(${a.id})" title="Eliminar">✕</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function agregarArea() {
+      const inp = document.getElementById('nuevaArea');
+      const nombre = inp.value.trim();
+      if (!nombre) return mostrarToast('Escribí un nombre', 'warning');
+      try {
+        await api('POST', '/api/areas', { nombre });
+        inp.value = '';
+        mostrarToast('Área agregada');
+        cargarAreas();
+      } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
+    }
+
+    async function editarArea(id, nombreActual) {
+      const nuevo = prompt('Nombre del área:', nombreActual);
+      if (!nuevo || nuevo === nombreActual) return;
+      try {
+        await api('PUT', '/api/areas/' + id, { nombre: nuevo });
+        mostrarToast('Área actualizada');
+        cargarAreas();
+      } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
+    }
+
+    async function eliminarArea(id) {
+      if (!confirm('¿Eliminar esta área? Las actividades quedarán como "Sin área".')) return;
+      try {
+        await api('DELETE', '/api/areas/' + id);
+        mostrarToast('Área eliminada');
+        cargarAreas();
+      } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
+    }
+  </script>
+</body>
+</html>

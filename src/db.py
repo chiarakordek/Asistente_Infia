@@ -94,6 +94,12 @@ def inicializar_bd():
             expira TIMESTAMP NOT NULL
         )''')
 
+        execute(conn, '''CREATE TABLE IF NOT EXISTS areas_usuario (
+            id_area SERIAL PRIMARY KEY,
+            id_usuario INTEGER NOT NULL REFERENCES usuarios(id_usuario),
+            nombre TEXT NOT NULL
+        )''')
+
         conn.commit()
         print("Base de datos PostgreSQL actualizada con éxito!")
     except Exception as e:
@@ -346,26 +352,57 @@ def obtener_stats(id_usuario):
     finally:
         conn.close()
 
-def renombrar_area(id_usuario, area_vieja, area_nueva):
-    conn = conectar()
-    try:
-        execute(conn, 'UPDATE actividades SET area = %s WHERE id_usuario = %s AND area = %s',
-                (area_nueva, id_usuario, area_vieja))
+# ─── ÁREAS ────────────────────────────────
+
+AREAS_DEFAULT = ['Identidad y Convivencia', 'Lenguaje y Literatura',
+                 'Matemáticas', 'Ciencias Sociales, Ciencias Naturales y Tecnología']
+
+def _asegurar_areas_default(conn, id_usuario):
+    count = fetch_one(conn, 'SELECT COUNT(*) as c FROM areas_usuario WHERE id_usuario = %s', (id_usuario,))['c']
+    if count == 0:
+        for nombre in AREAS_DEFAULT:
+            execute(conn, 'INSERT INTO areas_usuario (id_usuario, nombre) VALUES (%s, %s)', (id_usuario, nombre))
         conn.commit()
-    finally:
-        conn.close()
 
 def obtener_areas_usuario(id_usuario):
     conn = conectar()
     try:
-        rows = fetch_all(conn,
-            "SELECT DISTINCT area FROM actividades WHERE id_usuario = %s AND area != '' ORDER BY area",
-            (id_usuario,))
-        areas = [r['area'] for r in rows]
-        if not areas:
-            areas = ['Identidad y Convivencia', 'Lenguaje y Literatura', 'Matemáticas',
-                     'Ciencias Sociales, Ciencias Naturales y Tecnología']
-        return areas
+        _asegurar_areas_default(conn, id_usuario)
+        rows = fetch_all(conn, 'SELECT id_area, nombre FROM areas_usuario WHERE id_usuario = %s ORDER BY nombre', (id_usuario,))
+        return [{'id': r['id_area'], 'nombre': r['nombre']} for r in rows]
+    finally:
+        conn.close()
+
+def crear_area(id_usuario, nombre):
+    conn = conectar()
+    try:
+        execute(conn, 'INSERT INTO areas_usuario (id_usuario, nombre) VALUES (%s, %s)', (id_usuario, nombre))
+        conn.commit()
+    finally:
+        conn.close()
+
+def renombrar_area(id_usuario, area_id, nuevo_nombre):
+    conn = conectar()
+    try:
+        old = fetch_one(conn, 'SELECT nombre FROM areas_usuario WHERE id_area = %s AND id_usuario = %s', (area_id, id_usuario))
+        if old:
+            execute(conn, 'UPDATE areas_usuario SET nombre = %s WHERE id_area = %s AND id_usuario = %s',
+                    (nuevo_nombre, area_id, id_usuario))
+            execute(conn, 'UPDATE actividades SET area = %s WHERE id_usuario = %s AND area = %s',
+                    (nuevo_nombre, id_usuario, old['nombre']))
+            conn.commit()
+    finally:
+        conn.close()
+
+def eliminar_area(id_usuario, area_id):
+    conn = conectar()
+    try:
+        area = fetch_one(conn, 'SELECT nombre FROM areas_usuario WHERE id_area = %s AND id_usuario = %s', (area_id, id_usuario))
+        if area:
+            execute(conn, 'DELETE FROM areas_usuario WHERE id_area = %s AND id_usuario = %s', (area_id, id_usuario))
+            execute(conn, "UPDATE actividades SET area = 'Sin área' WHERE id_usuario = %s AND area = %s",
+                    (id_usuario, area['nombre']))
+            conn.commit()
     finally:
         conn.close()
 
