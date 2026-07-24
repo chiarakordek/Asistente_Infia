@@ -3,33 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Recuperar contraseña - Asistente Informes</title>
+  <title>Infia - Recuperar contraseña</title>
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=4">
+  <link rel="stylesheet" href="/static/css/styles.css?v=5">
 </head>
-<body style="background:linear-gradient(135deg,#eef2ff,#f0f2f5);min-height:100vh;display:flex;align-items:center">
+<body class="auth-page">
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-11 col-sm-8 col-md-6 col-lg-4">
-        <div class="card shadow-lg border-0 rounded-4">
-          <div class="card-body p-4">
-            <div class="text-center mb-3">
-              <div class="fs-1">🔑</div>
-              <h4 class="fw-bold mt-2">Recuperar contraseña</h4>
-              <p class="text-muted small mb-0">No te preocupes, es normal olvidarla. Ingresá tu email y generamos una nueva.</p>
+        <div class="auth-card">
+          <div class="card-body">
+            <div class="text-center mb-4">
+              <div class="auth-brand">Infia</div>
+              <p class="auth-subtitle mt-1">Recuperar contraseña</p>
             </div>
+            <p class="text-center text-muted small mb-3">No te preocupes, es normal olvidarla. Ingresá tu email y generamos una nueva.</p>
             <form id="forgotForm">
               <div class="mb-3">
-                <label class="form-label small fw-medium">Email con el que te registraste</label>
+                <label class="form-label">Email con el que te registraste</label>
                 <input type="email" id="email" class="form-control" placeholder="tu@email.com" required>
               </div>
               <div id="errorMsg" class="alert alert-danger d-none py-2 small"></div>
               <div id="successMsg" class="alert alert-success d-none py-2 small"></div>
               <button type="submit" class="btn btn-primary w-100 fw-bold" id="btnSolicitar">Generar link de recuperación</button>
             </form>
-            <p class="text-center mt-3 small mb-0">
+            <hr>
+            <p class="text-center small mb-0">
               <a href="/login" class="text-muted">← Volver a iniciar sesión</a>
             </p>
           </div>

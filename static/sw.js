@@ -1,12 +1,12 @@
-const CACHE = 'asistente-v5';
+const CACHE = 'infia-v1';
 const OFFLINE = '/offline';
 
 const PRECACHE = [
   OFFLINE,
   '/login',
   '/registro',
-  '/static/css/styles.css?v=4',
-  '/static/js/app.js?v=3',
+  '/static/css/styles.css?v=5',
+  '/static/js/app.js?v=4',
   '/static/manifest.json',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',

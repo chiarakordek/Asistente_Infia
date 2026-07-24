@@ -3,38 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Perfil - Asistente Informes</title>
+  <title>Infia - Mi perfil</title>
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=4">
+  <link rel="stylesheet" href="/static/css/styles.css?v=5">
 </head>
 <body>
   <nav class="navbar navbar-expand navbar-dark shadow-sm sticky-top">
     <div class="container-fluid px-3">
-      <span class="navbar-brand fw-bold">Mi perfil</span>
-      <div class="nav-nav-custom">
-        <a class="nav-link-custom" href="/dashboard">Volver</a>
+      <a class="navbar-brand" href="/dashboard">Infia</a>
+      <div class="nav-links">
+        <a class="nav-link-item" href="/dashboard">← Volver</a>
       </div>
     </div>
   </nav>
 
   <div class="container-fluid px-3 py-3" style="max-width:500px">
-    <div class="card p-3 mb-3">
+    <div class="card p-4 mb-3">
       <h6 class="fw-bold mb-3">Datos del docente</h6>
       <form id="formPerfil">
         <div class="mb-2">
-          <label class="form-label small">Nombre completo</label>
+          <label class="form-label">Nombre completo</label>
           <input type="text" id="pfNombre" class="form-control" value="{{ user.nombre }}" required>
         </div>
         <div class="mb-2">
-          <label class="form-label small">Email</label>
+          <label class="form-label">Email</label>
           <input type="email" class="form-control" value="{{ user.email }}" disabled>
           <small class="text-muted">No se puede cambiar el email</small>
         </div>
         <div class="row g-2 mb-3">
           <div class="col-6">
-            <label class="form-label small">Sala</label>
+            <label class="form-label">Sala</label>
             <select id="pfSala" class="form-select">
               <option {% if user.sala == '3 Años A' %}selected{% endif %}>3 Años A</option>
               <option {% if user.sala == '3 Años B' %}selected{% endif %}>3 Años B</option>
@@ -48,7 +48,7 @@
             </select>
           </div>
           <div class="col-6">
-            <label class="form-label small">Turno</label>
+            <label class="form-label">Turno</label>
             <select id="pfTurno" class="form-select">
               <option {% if user.turno == 'Mañana' %}selected{% endif %}>Mañana</option>
               <option {% if user.turno == 'Tarde' %}selected{% endif %}>Tarde</option>
@@ -61,13 +61,11 @@
       </form>
     </div>
 
-    <div class="d-flex gap-2">
-      <a class="btn btn-sm btn-outline-secondary" href="/config">Cambiar contraseña</a>
-    </div>
+    <a class="btn btn-sm btn-outline-secondary w-100" href="/config">Cambiar contraseña</a>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/static/js/app.js?v=3"></script>
+  <script src="/static/js/app.js?v=4"></script>
   <script>
     document.getElementById('formPerfil').addEventListener('submit', async e => {
       e.preventDefault();
@@ -97,4 +95,3 @@
   </script>
 </body>
 </html>
-
