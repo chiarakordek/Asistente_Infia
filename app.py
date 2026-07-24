@@ -24,8 +24,11 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 # ─── Seguridad: rate limiting simple ────
 from collections import defaultdict
 from datetime import datetime, timedelta
+import re
 _login_intentos = defaultdict(list)
+_reset_intentos = defaultdict(list)
 _MAX_INTENTOS = 5
+_MAX_RESETS = 3
 _VENTANA_MINUTOS = 15
 
 def revisar_rate_limit(ip):
@@ -36,6 +39,28 @@ def revisar_rate_limit(ip):
         return False
     _login_intentos[ip].append(ahora)
     return True
+
+def revisar_rate_limit_reset(ip):
+    ahora = datetime.now()
+    intentos = [t for t in _reset_intentos[ip] if ahora - t < timedelta(minutes=_VENTANA_MINUTOS)]
+    _reset_intentos[ip] = intentos
+    if len(intentos) >= _MAX_RESETS:
+        return False
+    _reset_intentos[ip].append(ahora)
+    return True
+
+def validar_contraseña(pw):
+    """Valida que la contraseña cumpla la política de seguridad."""
+    errores = []
+    if len(pw) < 8:
+        errores.append('al menos 8 caracteres')
+    if not re.search(r'[A-Z]', pw):
+        errores.append('al menos una mayúscula')
+    if not re.search(r'[0-9]', pw):
+        errores.append('al menos un número')
+    if re.search(r'(.)\1{2,}', pw):
+        errores.append('no repetir el mismo carácter 3 veces seguidas')
+    return errores
 
 # ─── Security headers ────────────────────
 @app.after_request
@@ -181,8 +206,9 @@ def api_register():
         return jsonify(error='El nombre es obligatorio'), 400
     if not email or '@' not in email or '.' not in email:
         return jsonify(error='Email inválido'), 400
-    if len(contraseña) < 6:
-        return jsonify(error='La contraseña debe tener al menos 6 caracteres'), 400
+    errores_pw = validar_contraseña(contraseña)
+    if errores_pw:
+        return jsonify(error='La contraseña debe tener ' + ', '.join(errores_pw)), 400
     uid = crear_usuario(nombre, email,
                         hash_pass(contraseña),
                         data.get('sala', '3 Años B'),
@@ -365,6 +391,9 @@ def api_rename_area():
 
 @app.route('/api/usuario/reset-solicitar', methods=['POST'])
 def api_solicitar_reset():
+    ip = request.remote_addr or 'unknown'
+    if not revisar_rate_limit_reset(ip):
+        return jsonify(error='Demasiadas solicitudes. Esperá 15 minutos.'), 429
     data = request.json
     email = (data.get('email') or '').strip()
     if not email:
@@ -387,8 +416,9 @@ def api_ejecutar_reset(token):
     from src.db import obtener_usuario_por_token, eliminar_token
     data = request.json
     nueva = (data.get('nueva') or '')
-    if len(nueva) < 6:
-        return jsonify(error='La contraseña debe tener al menos 6 caracteres'), 400
+    errores_pw = validar_contraseña(nueva)
+    if errores_pw:
+        return jsonify(error='La contraseña debe tener ' + ', '.join(errores_pw)), 400
     user = obtener_usuario_por_token(token)
     if not user:
         return jsonify(error='Token inválido o expirado'), 400
@@ -407,8 +437,9 @@ def api_cambiar_contraseña():
     nueva = (data.get('nueva') or '')
     if not actual or not nueva:
         return jsonify(error='Completá ambos campos'), 400
-    if len(nueva) < 6:
-        return jsonify(error='La nueva contraseña debe tener al menos 6 caracteres'), 400
+    errores_pw = validar_contraseña(nueva)
+    if errores_pw:
+        return jsonify(error='La nueva contraseña debe tener ' + ', '.join(errores_pw)), 400
     user = obtener_usuario_por_id(session['user_id'])
     if not check_password_hash(user['contraseña'], actual):
         return jsonify(error='La contraseña actual no es correcta'), 401

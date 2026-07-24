@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let valid = true;
     if (!nombre) { rf.nombre.classList.add('is-invalid'); valid = false; }
     if (!email || !email.includes('@')) { rf.email.classList.add('is-invalid'); valid = false; }
-    if (pw.length < 4) { rf.password.classList.add('is-invalid'); valid = false; }
+    if (pw.length < 8) { rf.password.classList.add('is-invalid'); valid = false; }
     if (pw !== pw2) { rf.password2.classList.add('is-invalid'); valid = false; }
     if (!valid) return;
     const btn = rf.querySelector('button[type=submit]');
