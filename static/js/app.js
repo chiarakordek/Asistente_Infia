@@ -126,8 +126,7 @@ async function cargarAlumnos() {
     if (!alumnos.length) {
       c.innerHTML = `<div class="text-center py-5 text-muted">
         <p class="mb-2 fs-4">👩‍🏫</p>
-        <p class="small">Todavía no cargaste alumnos.</p>
-        <button class="btn btn-sm btn-primary" onclick="mostrarModalAlumno()">Agregar primer alumno</button>
+        <p class="small">Todavía no cargaste alumnos. Usá el formulario de arriba para agregar.</p>
       </div>`;
       return;
     }
@@ -589,53 +588,6 @@ async function cargarObsHoy() {
 }
 
 // ─── CRUD ALUMNOS ───────────────────────
-let modalAlumno, modalVarios;
-
-document.addEventListener('DOMContentLoaded', () => {
-  modalAlumno = document.getElementById('modalAlumno') ? new bootstrap.Modal('#modalAlumno') : null;
-  modalVarios = document.getElementById('modalVarios') ? new bootstrap.Modal('#modalVarios') : null;
-});
-
-function mostrarModalAlumno() {
-  document.getElementById('formAlumno').reset();
-  modalAlumno.show();
-}
-
-async function guardarAlumno() {
-  const nombre = document.getElementById('alNombre').value.trim();
-  const apellido = document.getElementById('alApellido').value.trim();
-  if (!nombre || !apellido) return mostrarToast('Completá nombre y apellido', 'warning');
-  try {
-    await api('POST', '/api/alumnos', { nombre, apellido });
-    modalAlumno.hide();
-    mostrarToast('Alumno agregado');
-    cargarAlumnos();
-  } catch (e) { mostrarToast(e.message, 'danger'); }
-}
-
-function cargarVarios() {
-  document.getElementById('listaAlumnos').value = '';
-  modalVarios.show();
-}
-
-async function guardarVarios() {
-  const lines = document.getElementById('listaAlumnos').value.trim().split('\n').filter(Boolean);
-  if (!lines.length) return mostrarToast('Pegá al menos un alumno', 'warning');
-  let ok = 0;
-  for (const l of lines) {
-    const partes = l.trim().split(/\s+/);
-    if (partes.length < 2) continue;
-    const apellido = partes.pop();
-    const nombre = partes.join(' ');
-    try {
-      await api('POST', '/api/alumnos', { nombre, apellido });
-      ok++;
-    } catch (e) {}
-  }
-  modalVarios.hide();
-  mostrarToast(`${ok} alumnos cargados`);
-  cargarAlumnos();
-}
 
 async function eliminarAlumno(id) {
   if (!confirm('¿Eliminar este alumno y sus observaciones?')) return;

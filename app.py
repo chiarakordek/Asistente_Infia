@@ -242,6 +242,22 @@ def api_crear_alumno():
     uid = registrar_alumno(session['user_id'], data['nombre'], data['apellido'])
     return jsonify(id_alumno=uid), 201
 
+@app.route('/api/alumnos/multi', methods=['POST'])
+@login_required
+def api_crear_alumnos_multi():
+    data = request.json
+    alumnos = data.get('alumnos', [])
+    if not alumnos:
+        return jsonify(error='Sin alumnos'), 400
+    ids = []
+    for a in alumnos:
+        nombre = a.get('nombre', '').strip()
+        apellido = a.get('apellido', '').strip()
+        if nombre and apellido:
+            uid = registrar_alumno(session['user_id'], nombre, apellido)
+            ids.append(uid)
+    return jsonify(creados=len(ids)), 201
+
 @app.route('/api/alumnos/<int:id_alumno>', methods=['DELETE'])
 @login_required
 def api_eliminar_alumno(id_alumno):
