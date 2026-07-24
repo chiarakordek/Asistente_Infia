@@ -330,22 +330,18 @@ def eliminar_unidad(id_unidad, id_usuario):
 def obtener_stats(id_usuario):
     conn = conectar()
     try:
-        total_alumnos = fetch_one(conn,
-            'SELECT COUNT(*) as count FROM alumnos WHERE id_usuario = %s', (id_usuario,))['count']
-        obs_hoy = fetch_one(conn,
-            "SELECT COUNT(*) as count FROM observaciones o JOIN alumnos al ON o.id_alumno = al.id_alumno WHERE al.id_usuario = %s AND date(o.fecha) = CURRENT_DATE",
-            (id_usuario,))['count']
-        total_obs = fetch_one(conn,
-            'SELECT COUNT(*) as count FROM observaciones o JOIN alumnos al ON o.id_alumno = al.id_alumno WHERE al.id_usuario = %s',
-            (id_usuario,))['count']
-        informes = fetch_one(conn,
-            'SELECT COUNT(*) as count FROM informes_finales i JOIN alumnos al ON i.id_alumno = al.id_alumno WHERE al.id_usuario = %s',
-            (id_usuario,))['count']
+        r = fetch_one(conn, """
+            SELECT
+              (SELECT COUNT(*) FROM alumnos WHERE id_usuario = %s) AS total_alumnos,
+              (SELECT COUNT(*) FROM observaciones o JOIN alumnos al ON o.id_alumno = al.id_alumno WHERE al.id_usuario = %s AND date(o.fecha) = CURRENT_DATE) AS obs_hoy,
+              (SELECT COUNT(*) FROM observaciones o JOIN alumnos al ON o.id_alumno = al.id_alumno WHERE al.id_usuario = %s) AS total_obs,
+              (SELECT COUNT(*) FROM informes_finales i JOIN alumnos al ON i.id_alumno = al.id_alumno WHERE al.id_usuario = %s) AS informes
+        """, (id_usuario, id_usuario, id_usuario, id_usuario))
         return {
-            'total_alumnos': total_alumnos,
-            'observaciones_hoy': obs_hoy,
-            'total_observaciones': total_obs,
-            'total_informes': informes,
+            'total_alumnos': r['total_alumnos'],
+            'observaciones_hoy': r['obs_hoy'],
+            'total_observaciones': r['total_obs'],
+            'total_informes': r['informes'],
         }
     finally:
         conn.close()

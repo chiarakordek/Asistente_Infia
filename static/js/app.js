@@ -102,9 +102,7 @@ let recordingState = { mediaRecorder: null, chunks: [], alumnoId: null, activida
 let seleccionMode = false;
 
 async function cargarDashboard() {
-  await cargarStats();
-  await cargarActividadesSelect();
-  await cargarAlumnos();
+  await Promise.all([cargarStats(), cargarAlumnos()]);
   cargarObsHoy();
 }
 
