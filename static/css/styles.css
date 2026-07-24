@@ -99,23 +99,22 @@ body {
 }
 
 .nav-link-logout {
-  color: rgba(255,255,255,0.85);
+  color: #fff;
   text-decoration: none;
   font-size: 0.82rem;
-  font-weight: 400;
-  padding: 0.4rem 0.7rem;
+  font-weight: 500;
+  padding: 0.4rem 0.85rem;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.35);
+  border: none;
+  background: rgba(239,68,68,0.75);
   transition: all var(--transition);
   white-space: nowrap;
-  background: transparent;
   cursor: pointer;
 }
 
 .nav-link-logout:hover {
+  background: #ef4444;
   color: #fff;
-  background: rgba(255,255,255,0.15);
-  border-color: rgba(255,255,255,0.5);
 }
 
 /* ─── Cards ──────────────────────────────── */
@@ -658,8 +657,9 @@ hr { margin: 1rem 0; opacity: 0.4; }
   .nav-divider { display: none; }
 
   .nav-link-logout {
-    font-size: 0.7rem;
-    padding: 0.35rem 0.55rem;
+    font-size: 0.72rem;
+    padding: 0.35rem 0.65rem;
+    background: rgba(239,68,68,0.8);
   }
 
   .alumno-item { padding: 0.5rem 0.6rem; margin-bottom: 0.35rem; }
