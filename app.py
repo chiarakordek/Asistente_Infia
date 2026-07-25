@@ -671,21 +671,7 @@ def sw():
 def offline():
     return render_template('offline.html')
 
-@app.route('/robots.txt')
-def robots():
-    return send_from_directory(app.static_folder, 'robots.txt', mimetype='text/plain')
 
-@app.route('/sitemap.xml')
-def sitemap():
-    return send_from_directory(app.static_folder, 'sitemap.xml', mimetype='application/xml')
-
-@app.route('/google-site-verification.html')
-def google_verify():
-    return send_from_directory(app.static_folder, 'google-site-verification.html')
-
-@app.route('/google4d85790616247b37.html')
-def google_verify_file():
-    return send_from_directory(app.static_folder, 'google4d85790616247b37.html')
 
 @app.route('/static/<path:path>')
 def static_files(path):

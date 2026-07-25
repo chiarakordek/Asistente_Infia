@@ -208,8 +208,9 @@ def obtener_alumnos(id_usuario):
 def eliminar_alumno(id_alumno, id_usuario):
     conn = conectar()
     try:
-        execute(conn, 'DELETE FROM alumnos WHERE id_alumno = %s AND id_usuario = %s', (id_alumno, id_usuario))
+        execute(conn, 'DELETE FROM informes_finales WHERE id_alumno = %s', (id_alumno,))
         execute(conn, 'DELETE FROM observaciones WHERE id_alumno = %s', (id_alumno,))
+        execute(conn, 'DELETE FROM alumnos WHERE id_alumno = %s AND id_usuario = %s', (id_alumno, id_usuario))
         conn.commit()
     finally:
         conn.close()
