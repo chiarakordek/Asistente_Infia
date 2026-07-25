@@ -267,7 +267,10 @@ def api_crear_alumnos_multi():
 @app.route('/api/alumnos/<int:id_alumno>', methods=['DELETE'])
 @login_required
 def api_eliminar_alumno(id_alumno):
-    eliminar_alumno(id_alumno, session['user_id'])
+    try:
+        eliminar_alumno(id_alumno, session['user_id'])
+    except Exception as e:
+        return jsonify(error=str(e)), 500
     return jsonify(ok=True)
 
 @app.route('/api/alumnos/delete-multi', methods=['POST'])
@@ -277,8 +280,11 @@ def api_eliminar_alumnos_multi():
     ids = data.get('ids', [])
     if not ids:
         return jsonify(error='Sin IDs'), 400
-    for aid in ids:
-        eliminar_alumno(aid, session['user_id'])
+    try:
+        for aid in ids:
+            eliminar_alumno(aid, session['user_id'])
+    except Exception as e:
+        return jsonify(error=str(e)), 500
     return jsonify(eliminados=len(ids))
 
 # ─── API: ACTIVIDADES ────────────────────
