@@ -273,15 +273,15 @@ body {
 }
 
 .btn-record {
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   flex-shrink: 0;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
 }
 
 .btn-record.recording {
@@ -673,11 +673,11 @@ hr { margin: 1rem 0; opacity: 0.4; }
 
   .alumno-item { padding: 0.6rem 0.7rem; margin-bottom: 0.4rem; }
   .alumno-top { margin-bottom: 0.6rem; }
-  .alumno-nombre { font-size: 0.95rem; }
+  .alumno-nombre { font-size: 1rem; }
   .alumno-bottom .dropdown-toggle { font-size: 0.82rem; padding: 0.3rem 0.5rem; min-height: 34px; }
   .alumno-bottom .dropdown-menu { min-width: 180px; font-size: 0.85rem; }
   .alumno-bottom .btn-save { font-size: 0.82rem; min-height: 34px; padding: 0.2rem 0.5rem; min-width: 36px; }
-  .btn-record { width: 36px; height: 36px; font-size: 1.1rem; }
+  .btn-record { width: 40px; height: 40px; font-size: 1.2rem; }
   .btn-icon { width: 30px; height: 30px; }
   .btn-sm { font-size: 0.82rem; padding: 0.25rem 0.5rem; min-height: 32px; }
   .container-fluid { padding-left: 0.7rem !important; padding-right: 0.7rem !important; }

@@ -141,7 +141,7 @@ async function cargarAlumnos() {
         <div class="alumno-bottom">
           <div class="dropdown actividad-dropdown flex-grow-1" data-alumno="${a.id_alumno}">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle text-truncate w-100" type="button" data-bs-toggle="dropdown">
-              <span class="actividad-label">Actividad</span>
+              <span class="actividad-label">Indicador</span>
             </button>
             <ul class="dropdown-menu w-100 dropdown-menu-actividades" style="max-height:40vh;overflow-y:auto">
               <li><a class="dropdown-item" href="#" data-value="">— Sin actividad —</a></li>
@@ -160,7 +160,7 @@ async function cargarAlumnos() {
         const btn = dd.querySelector('.dropdown-toggle');
         const label = dd.querySelector('.actividad-label');
         const value = el.dataset.value;
-        const text = value ? el.textContent : 'Seleccionar actividad';
+        const text = value ? el.textContent : 'Seleccionar indicador';
         dd.dataset.selected = value;
         label.textContent = text;
         btn.classList.toggle('btn-outline-primary', !!value);
@@ -191,7 +191,7 @@ async function guardarObs(idAlumno, btn) {
   try {
     await api('POST', '/api/observaciones', {
       id_alumno: idAlumno, id_actividad: parseInt(value),
-      nota_cruda: `Actividad completada: ${label.textContent}`,
+      nota_cruda: `Indicador completado: ${label.textContent}`,
       tipo: 'texto'
     });
     mostrarToast('Observación guardada');
@@ -608,8 +608,8 @@ async function cargarActividades() {
     if (!acts.length) {
       c.innerHTML = `<div class="text-center py-5 text-muted">
         <p class="mb-2 fs-4">📋</p>
-        <p class="small">${filtro ? 'No hay actividades para esta área hoy.' : 'No hay actividades para hoy.'}</p>
-        <button class="btn btn-sm btn-primary" onclick="document.getElementById('bulkActividades').focus()">Crear actividades</button>
+        <p class="small">${filtro ? 'No hay indicadores para esta área hoy.' : 'No hay indicadores para hoy.'}</p>
+        <button class="btn btn-sm btn-primary" onclick="document.getElementById('bulkActividades').focus()">Crear indicadores</button>
       </div>`;
       return;
     }
@@ -694,7 +694,7 @@ function editarActividad(id, btn) {
     if (!nuevoNombre) return mostrarToast('El nombre no puede estar vacío', 'warning');
     try {
       await api('PUT', `/api/actividades/${id}`, { nombre: nuevoNombre });
-      mostrarToast('Actividad actualizada');
+      mostrarToast('Indicador actualizado');
       cargarActividades();
     } catch (e) {
       mostrarToast('Error: ' + e.message, 'danger');
@@ -742,7 +742,7 @@ async function eliminarActividad(id) {
   if (!confirm('¿Eliminar esta actividad?')) return;
   try {
     await api('DELETE', `/api/actividades/${id}`);
-    mostrarToast('Actividad eliminada');
+    mostrarToast('Indicador eliminado');
     cargarActividades();
   } catch (e) { mostrarToast(e.message, 'danger'); }
 }

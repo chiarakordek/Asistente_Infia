@@ -1,12 +1,12 @@
-const CACHE = 'infia-v3';
+const CACHE = 'infia-v4';
 const OFFLINE = '/offline';
 
 const PRECACHE = [
   OFFLINE,
   '/login',
   '/registro',
-  '/static/css/styles.css?v=8',
-  '/static/js/app.js?v=5',
+  '/static/css/styles.css?v=9',
+  '/static/js/app.js?v=6',
   '/static/manifest.json',
   '/static/icons/iconoinfia.png',
   '/static/icons/iconoinfia-192.png',
