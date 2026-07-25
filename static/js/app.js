@@ -135,7 +135,6 @@ async function cargarAlumnos() {
           <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none">${a.apellido}, ${a.nombre}</a>
           <div class="d-flex gap-1">
             <button class="btn btn-sm btn-outline-success btn-record" data-alumno="${a.id_alumno}" onclick="toggleRecord(this)" title="Grabar audio">🎤</button>
-            <button class="btn btn-sm btn-outline-info btn-icon" onclick="verObs(${a.id_alumno})" title="Ver observaciones">📄</button>
             <button class="btn btn-sm btn-outline-danger btn-icon" onclick="eliminarAlumno(${a.id_alumno})" title="Eliminar">✕</button>
           </div>
         </div>
