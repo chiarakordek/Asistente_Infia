@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /login
+Allow: /registro
+Disallow: /dashboard
+Disallow: /alumno/
+Disallow: /config
+Disallow: /perfil
+Disallow: /api/
+
+Sitemap: https://infia.com.ar/sitemap.xml

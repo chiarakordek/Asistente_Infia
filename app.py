@@ -651,6 +651,14 @@ def sw():
 def offline():
     return render_template('offline.html')
 
+@app.route('/robots.txt')
+def robots():
+    return send_from_directory(app.static_folder, 'robots.txt', mimetype='text/plain')
+
+@app.route('/sitemap.xml')
+def sitemap():
+    return send_from_directory(app.static_folder, 'sitemap.xml', mimetype='application/xml')
+
 @app.route('/static/<path:path>')
 def static_files(path):
     return send_from_directory(app.static_folder, path)
