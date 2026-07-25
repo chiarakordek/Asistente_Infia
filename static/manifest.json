@@ -4,7 +4,7 @@
   "description": "Tus informes al día, sin estrés",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#f8fafc",
+  "background_color": "#6366f1",
   "theme_color": "#6366f1",
   "orientation": "portrait",
   "categories": ["education", "productivity"],
