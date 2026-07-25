@@ -368,10 +368,13 @@ def _asegurar_areas_default(conn, id_usuario):
         activity_areas = fetch_all(conn,
             "SELECT DISTINCT area FROM actividades WHERE id_usuario = %s AND area != '' AND area != 'Sin área'",
             (id_usuario,))
+        added = False
         for r in activity_areas:
             if r['area'] not in existing:
                 execute(conn, 'INSERT INTO areas_usuario (id_usuario, nombre) VALUES (%s, %s)', (id_usuario, r['area']))
-        conn.commit()
+                added = True
+        if added:
+            conn.commit()
 
 def obtener_areas_usuario(id_usuario):
     conn = conectar()

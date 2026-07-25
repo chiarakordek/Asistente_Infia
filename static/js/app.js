@@ -129,9 +129,15 @@ async function cargarAlumnos() {
       </div>`;
       return;
     }
-    c.innerHTML = alumnos.map(a => `
+    c.innerHTML = `
+      <div class="d-flex align-items-center mb-2 gap-2">
+        <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll(this)">
+        <label class="small text-muted mb-0" for="selectAll">Seleccionar todos</label>
+      </div>
+    ` + alumnos.map(a => `
       <div class="alumno-item" data-id="${a.id_alumno}">
         <div class="alumno-top">
+          <input type="checkbox" class="form-check-input alumno-check" data-id="${a.id_alumno}" onchange="actualizarBulkBar()">
           <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none">${a.apellido}, ${a.nombre}</a>
           <div class="d-flex gap-1">
             <button class="btn btn-sm btn-outline-success btn-record" data-alumno="${a.id_alumno}" onclick="toggleRecord(this)" title="Grabar audio">🎤</button>
@@ -144,7 +150,7 @@ async function cargarAlumnos() {
               <span class="actividad-label">Indicador</span>
             </button>
             <ul class="dropdown-menu w-100 dropdown-menu-actividades" style="max-height:40vh;overflow-y:auto">
-              <li><a class="dropdown-item" href="#" data-value="">— Sin actividad —</a></li>
+              <li><a class="dropdown-item" href="#" data-value="">— Sin indicador —</a></li>
               ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
             </ul>
           </div>
@@ -182,7 +188,7 @@ async function guardarObs(idAlumno, btn) {
   const dd = document.querySelector(`.actividad-dropdown[data-alumno="${idAlumno}"]`);
   const value = dd ? dd.dataset.selected : '';
   if (!value) {
-    mostrarToast('Seleccioná una actividad primero', 'warning');
+      mostrarToast('Seleccioná un indicador primero', 'warning');
     return;
   }
   btn.disabled = true;
@@ -408,14 +414,14 @@ async function cargarObsAlumno(idAlumno) {
       } else {
         ic.innerHTML = `<div class="text-center py-4 text-muted">
           <p class="mb-1 fs-4">📄</p>
-          <p class="small">No hay actividades registradas para generar informe.</p>
+          <p class="small">No hay indicadores registrados para generar informe.</p>
         </div>`;
       }
     }
 
     // Mostrar observaciones
     if (!obs.length) {
-      c.innerHTML = '<div class="text-center py-5 text-muted"><p class="mb-2 fs-4">📋</p><p class="small">Este alumno no tiene actividades registradas aún.</p></div>';
+      c.innerHTML = '<div class="text-center py-5 text-muted"><p class="mb-2 fs-4">📋</p><p class="small">Este alumno no tiene indicadores registrados aún.</p></div>';
       return;
     }
     const grupos = {};
@@ -587,6 +593,40 @@ async function cargarObsHoy() {
 
 // ─── CRUD ALUMNOS ───────────────────────
 
+function toggleSelectAll(el) {
+  document.querySelectorAll('.alumno-check').forEach(cb => cb.checked = el.checked);
+  actualizarBulkBar();
+}
+
+function actualizarBulkBar() {
+  const checks = document.querySelectorAll('.alumno-check');
+  const checked = document.querySelectorAll('.alumno-check:checked');
+  const bar = document.getElementById('bulkBar');
+  if (bar) bar.classList.toggle('d-none', checked.length === 0);
+  const selectAll = document.getElementById('selectAll');
+  if (selectAll) selectAll.checked = checks.length > 0 && checks.length === checked.length;
+}
+
+async function eliminarSeleccionados() {
+  const ids = [...document.querySelectorAll('.alumno-check:checked')].map(cb => parseInt(cb.dataset.id));
+  if (!ids.length) return;
+  if (!confirm(`¿Eliminar ${ids.length} alumno(s) y sus observaciones?`)) return;
+  try {
+    await api('POST', '/api/alumnos/delete-multi', { ids });
+    mostrarToast(ids.length + ' alumno(s) eliminado(s)');
+    cargarAlumnos();
+    cargarObsHoy();
+    cargarStats();
+  } catch (e) { mostrarToast(e.message, 'danger'); }
+}
+
+function desmarcarTodas() {
+  document.querySelectorAll('.alumno-check').forEach(cb => cb.checked = false);
+  const selectAll = document.getElementById('selectAll');
+  if (selectAll) selectAll.checked = false;
+  actualizarBulkBar();
+}
+
 async function eliminarAlumno(id) {
   if (!confirm('¿Eliminar este alumno y sus observaciones?')) return;
   try {
@@ -649,7 +689,7 @@ async function guardarActividadesMulti() {
   const unidadSelect = document.getElementById('bulkUnidad');
   const idUnidad = unidadSelect ? parseInt(unidadSelect.value) || null : null;
   const lines = textarea.value.trim().split('\n').filter(Boolean);
-  if (!lines.length) return mostrarToast('Pegá al menos una actividad', 'warning');
+  if (!lines.length) return mostrarToast('Pegá al menos un indicador', 'warning');
 
   const actividades = lines.map(line => {
     line = line.trim();
@@ -665,7 +705,7 @@ async function guardarActividadesMulti() {
   try {
     const r = await api('POST', '/api/actividades/multi', { actividades, id_unidad: idUnidad });
     textarea.value = '';
-    mostrarToast(`${r.count} actividades cargadas`);
+    mostrarToast(`${r.count} indicadores cargados`);
     cargarActividades();
   } catch (e) {
     mostrarToast('Error: ' + e.message, 'danger');
@@ -739,7 +779,7 @@ async function cargarAreas() {
 }
 
 async function eliminarActividad(id) {
-  if (!confirm('¿Eliminar esta actividad?')) return;
+  if (!confirm('¿Eliminar este indicador?')) return;
   try {
     await api('DELETE', `/api/actividades/${id}`);
     mostrarToast('Indicador eliminado');

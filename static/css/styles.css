@@ -134,10 +134,21 @@ body {
 
 .alumno-top {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.6rem;
+}
+
+.alumno-top .alumno-nombre {
+  flex: 1;
+  min-width: 0;
+}
+
+.alumno-check {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--primary);
 }
 
 .alumno-nombre {
