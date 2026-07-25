@@ -415,6 +415,11 @@ def eliminar_area(id_usuario, area_id):
             execute(conn, "UPDATE actividades SET area = 'Sin área' WHERE id_usuario = %s AND area = %s",
                     (id_usuario, area['nombre']))
             conn.commit()
+            return True
+        return False
+    except Exception as e:
+        conn.rollback()
+        raise e
     finally:
         conn.close()
 

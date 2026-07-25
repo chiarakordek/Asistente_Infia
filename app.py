@@ -430,7 +430,10 @@ def api_renombrar_area(id_area):
 @app.route('/api/areas/<int:id_area>', methods=['DELETE'])
 @login_required
 def api_eliminar_area(id_area):
-    eliminar_area(session['user_id'], id_area)
+    try:
+        eliminar_area(session['user_id'], id_area)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
     return jsonify(ok=True)
 
 @app.route('/api/areas/rename', methods=['POST'])
