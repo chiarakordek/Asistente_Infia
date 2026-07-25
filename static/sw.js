@@ -9,6 +9,8 @@ const PRECACHE = [
   '/static/js/app.js?v=5',
   '/static/manifest.json',
   '/static/icons/iconoinfia.png',
+  '/static/icons/iconoinfia-192.png',
+  '/static/icons/iconoinfia-512.png',
 ];
 
 self.addEventListener('install', e => {
