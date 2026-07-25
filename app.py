@@ -663,6 +663,10 @@ def sitemap():
 def google_verify():
     return send_from_directory(app.static_folder, 'google-site-verification.html')
 
+@app.route('/google4d85790616247b37.html')
+def google_verify_file():
+    return send_from_directory(app.static_folder, 'google4d85790616247b37.html')
+
 @app.route('/static/<path:path>')
 def static_files(path):
     return send_from_directory(app.static_folder, path)
