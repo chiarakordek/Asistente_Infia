@@ -1,7 +1,7 @@
-3{
+{
   "name": "Infia",
   "short_name": "Infia",
-  "description": "Panel del docente para registrar observaciones y generar informes",
+  "description": "Tus informes al día, sin estrés",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#f8fafc",
@@ -10,9 +10,9 @@
   "categories": ["education", "productivity"],
   "prefer_related_applications": false,
   "icons": [
-    { "src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/static/icons/iconoinfia.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/icons/iconoinfia.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/static/icons/iconoinfia.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/static/icons/iconoinfia.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

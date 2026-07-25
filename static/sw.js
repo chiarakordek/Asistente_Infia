@@ -1,4 +1,4 @@
-const CACHE = 'infia-v2';
+const CACHE = 'infia-v3';
 const OFFLINE = '/offline';
 
 const PRECACHE = [
@@ -8,8 +8,7 @@ const PRECACHE = [
   '/static/css/styles.css?v=8',
   '/static/js/app.js?v=5',
   '/static/manifest.json',
-  '/static/icons/icon-192.png',
-  '/static/icons/icon-512.png',
+  '/static/icons/iconoinfia.png',
 ];
 
 self.addEventListener('install', e => {
