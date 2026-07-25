@@ -82,7 +82,7 @@ from src.db import (
     guardar_observacion, eliminar_observacion, eliminar_observaciones_multi,
     obtener_observaciones_alumno, obtener_todas_observaciones_dia,
     guardar_informe, obtener_informe_reciente, actualizar_informe,
-    renombrar_area, obtener_areas_usuario,
+    renombrar_area, obtener_areas_usuario, eliminar_area, crear_area,
     crear_unidad, obtener_unidades, obtener_unidad, actualizar_unidad, eliminar_unidad,
     obtener_stats, guardar_reset_token,
 )
