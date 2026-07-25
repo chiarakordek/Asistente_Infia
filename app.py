@@ -659,6 +659,10 @@ def robots():
 def sitemap():
     return send_from_directory(app.static_folder, 'sitemap.xml', mimetype='application/xml')
 
+@app.route('/google-site-verification.html')
+def google_verify():
+    return send_from_directory(app.static_folder, 'google-site-verification.html')
+
 @app.route('/static/<path:path>')
 def static_files(path):
     return send_from_directory(app.static_folder, path)
