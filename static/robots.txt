@@ -7,4 +7,4 @@ Disallow: /config
 Disallow: /perfil
 Disallow: /api/
 
-Sitemap: https://infia.com.ar/sitemap.xml
+Sitemap: https://infia.onrender.com/sitemap.xml
