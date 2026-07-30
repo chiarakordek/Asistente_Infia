@@ -315,6 +315,20 @@ def api_eliminar_actividad(id_actividad):
     eliminar_actividad(id_actividad, session['user_id'])
     return jsonify(ok=True)
 
+@app.route('/api/actividades/delete-multi', methods=['POST'])
+@login_required
+def api_eliminar_actividades_multi():
+    data = request.json
+    ids = data.get('ids', [])
+    if not ids:
+        return jsonify(error='Sin IDs'), 400
+    try:
+        for aid in ids:
+            eliminar_actividad(aid, session['user_id'])
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    return jsonify(eliminados=len(ids))
+
 @app.route('/api/actividades/multi', methods=['POST'])
 @login_required
 def api_crear_actividades_multi():

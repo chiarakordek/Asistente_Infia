@@ -119,12 +119,19 @@
         const acts = await api('GET', '/api/actividades');
         const c = document.getElementById('actHoyContainer');
         if (!acts.length) {
-          c.innerHTML = '<div class="text-center py-4 text-muted small">No hay indicadores hoy</div>';
+          c.innerHTML = '<div class="text-center py-4 text-muted small">No hay indicadores cargados</div>';
           return;
         }
-        c.innerHTML = acts.map(a => `
+        c.innerHTML = `
+          <div class="d-flex align-items-center gap-2 mb-2 ${acts.length ? '' : 'd-none'}" id="bulkBar">
+            <input type="checkbox" id="selectAllAct" onchange="toggleSelectAllAct(this)">
+            <span class="text-muted small">Seleccionar todo</span>
+            <button class="btn btn-sm btn-danger ms-auto" onclick="eliminarSeleccionadas()">Eliminar seleccionadas</button>
+          </div>
+        ` + acts.map(a => `
           <div class="actividad-card">
-            <div>
+            <div class="d-flex align-items-center gap-2">
+              <input type="checkbox" class="act-check" data-id="${a.id_actividad}" onchange="actualizarBulkBarAct()">
               <span>${a.nombre}</span>
               <span class="text-muted small ms-1">${a.area}</span>
               ${a.unidad_titulo ? `<span class="badge bg-light text-muted ms-1" style="font-size:0.65rem">${a.unidad_titulo}</span>` : ''}
@@ -135,6 +142,7 @@
             </div>
           </div>
         `).join('');
+        if (acts.length) actualizarBulkBarAct();
       } catch (e) {}
     }
 
@@ -153,6 +161,29 @@
       try {
         await api('DELETE', '/api/actividades/' + id);
         mostrarToast('Indicador eliminado');
+        cargarActividades();
+      } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
+    }
+
+    function toggleSelectAllAct(el) {
+      document.querySelectorAll('.act-check').forEach(cb => cb.checked = el.checked);
+      actualizarBulkBarAct();
+    }
+
+    function actualizarBulkBarAct() {
+      const checks = document.querySelectorAll('.act-check');
+      const checked = document.querySelectorAll('.act-check:checked');
+      const bar = document.getElementById('bulkBar');
+      if (bar) bar.classList.toggle('d-none', false);
+    }
+
+    async function eliminarSeleccionadas() {
+      const ids = [...document.querySelectorAll('.act-check:checked')].map(cb => parseInt(cb.dataset.id));
+      if (!ids.length) return;
+      if (!confirm('¿Eliminar ' + ids.length + ' indicador(es)?')) return;
+      try {
+        await api('POST', '/api/actividades/delete-multi', { ids });
+        mostrarToast(ids.length + ' indicador(es) eliminado(s)');
         cargarActividades();
       } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
     }
