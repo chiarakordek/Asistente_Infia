@@ -1,13 +1,21 @@
 import os
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 import psycopg2
 from psycopg2 import extras
+
+ZONA = ZoneInfo('America/Argentina/Buenos_Aires')
+
+def hoy():
+    return datetime.now(ZONA).date()
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def conectar():
     conn = psycopg2.connect(DATABASE_URL, sslmode='require')
     conn.autocommit = False
+    with conn.cursor() as cur:
+        cur.execute("SET TIME ZONE 'America/Argentina/Buenos_Aires'")
     return conn
 
 def fetch_all(conn, sql, params=None):
@@ -23,7 +31,6 @@ def fetch_one(conn, sql, params=None):
         return _serialize(dict(r)) if r else None
 
 def _serialize(row):
-    from datetime import date, datetime
     return {k: (v.strftime('%d/%m/%Y') if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
     from datetime import date, datetime
     return {k: (v.isoformat() if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
@@ -229,7 +236,7 @@ def crear_actividad(id_usuario, nombre, area, fecha=None, id_unidad=None):
     try:
         uid = execute_return(conn,
             'INSERT INTO actividades (id_usuario, nombre, area, fecha, id_unidad) VALUES (%s,%s,%s,%s,%s) RETURNING id_actividad',
-            (id_usuario, nombre, area, fecha or date.today().isoformat(), id_unidad))
+            (id_usuario, nombre, area, fecha or hoy().isoformat(), id_unidad))
         conn.commit()
         return uid
     finally:
@@ -270,7 +277,7 @@ def crear_actividades_multi(id_usuario, actividades, fecha=None, id_unidad=None)
     conn = conectar()
     ids = []
     try:
-        f = fecha or date.today().isoformat()
+        f = fecha or hoy().isoformat()
         for act in actividades:
             uid = execute_return(conn,
                 'INSERT INTO actividades (id_usuario, nombre, area, fecha, id_unidad) VALUES (%s,%s,%s,%s,%s) RETURNING id_actividad',
