@@ -24,7 +24,7 @@ def fetch_one(conn, sql, params=None):
 
 def _serialize(row):
     from datetime import date, datetime
-    return {k: (v.isoformat() if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
+    return {k: (v.date().isoformat() if isinstance(v, datetime) else v.isoformat() if isinstance(v, date) else v) for k, v in row.items()}
     from datetime import date, datetime
     return {k: (v.isoformat() if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
 
