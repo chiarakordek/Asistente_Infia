@@ -1,21 +1,29 @@
 import os
 from datetime import date, datetime
-from zoneinfo import ZoneInfo
+try:
+    from zoneinfo import ZoneInfo
+    ZONA = ZoneInfo('America/Argentina/Buenos_Aires')
+except Exception:
+    ZONA = None
 import psycopg2
 from psycopg2 import extras
 
-ZONA = ZoneInfo('America/Argentina/Buenos_Aires')
 
 def hoy():
-    return datetime.now(ZONA).date()
+    if ZONA:
+        return datetime.now(ZONA).date()
+    return date.today()
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def conectar():
     conn = psycopg2.connect(DATABASE_URL, sslmode='require')
     conn.autocommit = False
-    with conn.cursor() as cur:
-        cur.execute("SET TIME ZONE 'America/Argentina/Buenos_Aires'")
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SET TIME ZONE 'America/Argentina/Buenos_Aires'")
+    except Exception:
+        pass
     return conn
 
 def fetch_all(conn, sql, params=None):
