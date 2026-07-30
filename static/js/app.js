@@ -49,7 +49,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = lf.querySelector('button[type=submit]');
     btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Entrando...';
     try {
-      await api('POST', '/api/login', { email: lf.email.value, contraseña: lf.password.value });
+      const formData = { email: lf.email.value, contraseña: lf.password.value };
+      const r = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(formData) });
+      if (!r.ok) {
+        const text = await r.text();
+        let msg = text;
+        try { const j = JSON.parse(text); msg = j.error || text; } catch(e) {}
+        throw new Error(msg);
+      }
       window.location = '/dashboard';
     } catch (err) {
       errEl.textContent = err.message;
