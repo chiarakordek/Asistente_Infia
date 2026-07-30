@@ -13,13 +13,20 @@ def conectar():
 def fetch_all(conn, sql, params=None):
     with conn.cursor(cursor_factory=extras.RealDictCursor) as cur:
         cur.execute(sql, params or ())
-        return [dict(r) for r in cur.fetchall()]
+        rows = cur.fetchall()
+        return [_serialize(dict(r)) for r in rows]
 
 def fetch_one(conn, sql, params=None):
     with conn.cursor(cursor_factory=extras.RealDictCursor) as cur:
         cur.execute(sql, params or ())
         r = cur.fetchone()
-        return dict(r) if r else None
+        return _serialize(dict(r)) if r else None
+
+def _serialize(row):
+    from datetime import date, datetime
+    return {k: (v.isoformat() if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
+    from datetime import date, datetime
+    return {k: (v.isoformat() if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
 
 def execute(conn, sql, params=None):
     with conn.cursor() as cur:
