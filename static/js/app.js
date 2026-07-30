@@ -130,9 +130,10 @@ async function cargarAlumnos() {
       return;
     }
     c.innerHTML = `
-      <div class="d-flex align-items-center mb-2 gap-2">
-        <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll(this)">
-        <label class="small text-muted mb-0" for="selectAll">Seleccionar todos</label>
+      <div class="d-flex align-items-center gap-2 mb-2 ${alumnos.length ? '' : 'd-none'}" id="bulkBar">
+        <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)">
+        <span class="text-muted small">Seleccionar todos</span>
+        <button class="btn btn-sm btn-danger ms-auto" onclick="eliminarSeleccionados()">Eliminar seleccionados</button>
       </div>
     ` + alumnos.map(a => `
       <div class="alumno-item" data-id="${a.id_alumno}">
@@ -598,12 +599,9 @@ function toggleSelectAll(el) {
 }
 
 function actualizarBulkBar() {
-  const checks = document.querySelectorAll('.alumno-check');
   const checked = document.querySelectorAll('.alumno-check:checked');
   const bar = document.getElementById('bulkBar');
   if (bar) bar.classList.toggle('d-none', checked.length === 0);
-  const selectAll = document.getElementById('selectAll');
-  if (selectAll) selectAll.checked = checks.length > 0 && checks.length === checked.length;
 }
 
 async function eliminarSeleccionados() {
