@@ -185,22 +185,24 @@ def alumno_page(id_alumno):
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
-    ip = request.remote_addr or 'unknown'
-    if not revisar_rate_limit(ip):
-        return jsonify(error='Demasiados intentos. Esperá 15 minutos.'), 429
-    data = request.json
-    email = (data.get('email') or '').strip()
-    contraseña = data.get('contraseña') or ''
-    if not email or not contraseña:
-        return jsonify(error='Completá todos los campos'), 400
-    user = obtener_usuario_por_email(email)
-    if not user or not check_password_hash(user['contraseña'], contraseña):
-        return jsonify(error='Email o contraseña incorrectos'), 401
-    session.permanent = True
-    session['user_id'] = user['id_usuario']
-    # Limpiar intentos al login exitoso
-    _login_intentos[ip] = []
-    return jsonify(ok=True, nombre=user['nombre'])
+    try:
+        ip = request.remote_addr or 'unknown'
+        if not revisar_rate_limit(ip):
+            return jsonify(error='Demasiados intentos. Esperá 15 minutos.'), 429
+        data = request.json
+        email = (data.get('email') or '').strip()
+        contraseña = data.get('contraseña') or ''
+        if not email or not contraseña:
+            return jsonify(error='Completá todos los campos'), 400
+        user = obtener_usuario_por_email(email)
+        if not user or not check_password_hash(user['contraseña'], contraseña):
+            return jsonify(error='Email o contraseña incorrectos'), 401
+        session.permanent = True
+        session['user_id'] = user['id_usuario']
+        _login_intentos[ip] = []
+        return jsonify(ok=True, nombre=user['nombre'])
+    except Exception as e:
+        return jsonify(error='Error interno: ' + str(e)), 500
 
 @app.route('/api/register', methods=['POST'])
 def api_register():
