@@ -138,7 +138,6 @@
             </div>
             <div class="d-flex gap-1">
               <button class="btn btn-sm btn-outline-secondary btn-icon" onclick="editarActividad(${a.id_actividad},'${a.nombre.replace(/'/g,"\\'")}','${a.area.replace(/'/g,"\\'")}')" title="Editar">✏️</button>
-              <button class="btn btn-sm btn-outline-danger btn-icon" onclick="eliminarActividad(${a.id_actividad})" title="Eliminar">✕</button>
             </div>
           </div>
         `).join('');
