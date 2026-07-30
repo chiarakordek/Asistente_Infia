@@ -426,7 +426,7 @@ async function cargarObsAlumno(idAlumno) {
     }
     const grupos = {};
     obs.forEach(o => {
-      const fecha = o.fecha?.slice(0,10) || 'Sin fecha';
+      const fecha = o.fecha || 'Sin fecha';
       if (!grupos[fecha]) grupos[fecha] = [];
       grupos[fecha].push(o);
     });
