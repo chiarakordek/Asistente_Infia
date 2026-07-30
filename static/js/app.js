@@ -139,10 +139,9 @@ async function cargarAlumnos() {
         <div class="alumno-top">
           <input type="checkbox" class="form-check-input alumno-check" data-id="${a.id_alumno}" onchange="actualizarBulkBar()">
           <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none">${a.apellido}, ${a.nombre}</a>
-          <div class="d-flex gap-1">
+            <div class="d-flex gap-1">
             <button class="btn btn-sm btn-outline-success btn-record" data-alumno="${a.id_alumno}" onclick="toggleRecord(this)" title="Grabar audio">🎤</button>
-            <button class="btn btn-sm btn-outline-danger btn-icon" onclick="eliminarAlumno(${a.id_alumno})" title="Eliminar">✕</button>
-          </div>
+            </div>
         </div>
         <div class="alumno-bottom">
           <div class="dropdown actividad-dropdown flex-grow-1" data-alumno="${a.id_alumno}">

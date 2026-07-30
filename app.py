@@ -456,6 +456,20 @@ def api_eliminar_area(id_area):
         return jsonify(error=str(e)), 500
     return jsonify(ok=True)
 
+@app.route('/api/areas/delete-multi', methods=['POST'])
+@login_required
+def api_eliminar_areas_multi():
+    data = request.json
+    ids = data.get('ids', [])
+    if not ids:
+        return jsonify(error='Sin IDs'), 400
+    try:
+        for aid in ids:
+            eliminar_area(session['user_id'], aid)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    return jsonify(eliminados=len(ids))
+
 @app.route('/api/areas/rename', methods=['POST'])
 @login_required
 def api_rename_area():
@@ -598,6 +612,20 @@ def api_actualizar_unidad(id_unidad):
 def api_eliminar_unidad(id_unidad):
     eliminar_unidad(id_unidad, session['user_id'])
     return jsonify(ok=True)
+
+@app.route('/api/unidades/delete-multi', methods=['POST'])
+@login_required
+def api_eliminar_unidades_multi():
+    data = request.json
+    ids = data.get('ids', [])
+    if not ids:
+        return jsonify(error='Sin IDs'), 400
+    try:
+        for uid in ids:
+            eliminar_unidad(uid, session['user_id'])
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    return jsonify(eliminados=len(ids))
 
 # ─── API: STATS ───────────────────────────
 

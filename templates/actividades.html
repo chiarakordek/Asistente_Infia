@@ -170,10 +170,9 @@
     }
 
     function actualizarBulkBarAct() {
-      const checks = document.querySelectorAll('.act-check');
       const checked = document.querySelectorAll('.act-check:checked');
       const bar = document.getElementById('bulkBar');
-      if (bar) bar.classList.toggle('d-none', false);
+      if (bar) bar.classList.toggle('d-none', checked.length === 0);
     }
 
     async function eliminarSeleccionadas() {

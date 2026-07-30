@@ -55,15 +55,24 @@
           c.innerHTML = '<div class="text-center py-4 text-muted small">No hay áreas</div>';
           return;
         }
-        c.innerHTML = areas.map(a => `
+        c.innerHTML = `
+          <div class="d-flex align-items-center gap-2 mb-2 ${areas.length ? '' : 'd-none'}" id="bulkBarArea">
+            <input type="checkbox" id="selectAllArea" onchange="toggleSelectAllArea(this)">
+            <span class="text-muted small">Seleccionar todo</span>
+            <button class="btn btn-sm btn-danger ms-auto" onclick="eliminarAreasSeleccionadas()">Eliminar seleccionadas</button>
+          </div>
+        ` + areas.map(a => `
           <div class="actividad-card">
-            <span>${a.nombre}</span>
+            <div class="d-flex align-items-center gap-2">
+              <input type="checkbox" class="area-check" data-id="${a.id}" onchange="actualizarBulkBarArea()">
+              <span>${a.nombre}</span>
+            </div>
             <div class="d-flex gap-1">
               <button class="btn btn-sm btn-outline-secondary btn-icon" onclick="editarArea(${a.id},'${a.nombre.replace(/'/g,"\\'")}')" title="Editar">✏️</button>
-              <button class="btn btn-sm btn-outline-danger btn-icon" onclick="eliminarArea(${a.id})" title="Eliminar">✕</button>
             </div>
           </div>
         `).join('');
+        if (areas.length) actualizarBulkBarArea();
       } catch (e) {}
     }
 
@@ -94,6 +103,27 @@
       try {
         await api('DELETE', '/api/areas/' + id);
         mostrarToast('Área eliminada');
+        cargarAreas();
+      } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
+    }
+
+    function toggleSelectAllArea(el) {
+      document.querySelectorAll('.area-check').forEach(cb => cb.checked = el.checked);
+      actualizarBulkBarArea();
+    }
+
+    function actualizarBulkBarArea() {
+      const checked = document.querySelectorAll('.area-check:checked');
+      document.getElementById('bulkBarArea').classList.toggle('d-none', checked.length === 0);
+    }
+
+    async function eliminarAreasSeleccionadas() {
+      const ids = [...document.querySelectorAll('.area-check:checked')].map(cb => parseInt(cb.dataset.id));
+      if (!ids.length) return;
+      if (!confirm('¿Eliminar ' + ids.length + ' área(s)? Los indicadores quedarán como "Sin área".')) return;
+      try {
+        await api('POST', '/api/areas/delete-multi', { ids });
+        mostrarToast(ids.length + ' área(s) eliminada(s)');
         cargarAreas();
       } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
     }
