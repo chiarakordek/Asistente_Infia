@@ -39,9 +39,8 @@ def fetch_one(conn, sql, params=None):
         return _serialize(dict(r)) if r else None
 
 def _serialize(row):
-    return {k: (v.strftime('%d/%m/%Y') if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
     from datetime import date, datetime
-    return {k: (v.isoformat() if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
+    return {k: (v.strftime('%d/%m/%Y') if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
 
 def execute(conn, sql, params=None):
     with conn.cursor() as cur:
