@@ -658,46 +658,101 @@ hr { margin: 1rem 0; opacity: 0.4; }
 @media (max-width: 576px) {
   html { font-size: 16px; }
 
-  .navbar { min-height: 52px; }
+  /* Navbar — scrollable horizontal, no wrap cramming */
+  .navbar { min-height: 56px; }
   .navbar-brand { font-size: 1.1rem; }
 
-  .nav-links {
-    width: 100%;
-    margin-top: 0.2rem;
+  .navbar .container-fluid {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     gap: 0;
-    justify-content: center;
-    flex-wrap: wrap;
+  }
+  .navbar .container-fluid::-webkit-scrollbar { display: none; }
+
+  .nav-links {
+    gap: 0.15rem;
+    flex-wrap: nowrap;
+    padding-bottom: 0;
   }
 
   .nav-link-item {
-    font-size: 0.8rem;
-    padding: 0.45rem 0.65rem;
+    font-size: 0.78rem;
+    padding: 0.5rem 0.55rem;
   }
 
   .nav-divider { display: none; }
 
   .nav-link-logout {
-    font-size: 0.82rem;
-    padding: 0.4rem 0.75rem;
+    font-size: 0.78rem;
+    padding: 0.45rem 0.7rem;
     background: #ef4444;
+    margin-left: 0.2rem;
   }
 
-  .alumno-item { padding: 0.6rem 0.7rem; margin-bottom: 0.4rem; }
-  .alumno-top { margin-bottom: 0.6rem; }
-  .alumno-nombre { font-size: 1rem; }
-  .alumno-bottom .dropdown-toggle { font-size: 0.82rem; padding: 0.3rem 0.5rem; min-height: 34px; }
-  .alumno-bottom .dropdown-menu { min-width: 180px; font-size: 0.85rem; }
-  .alumno-bottom .btn-save { font-size: 0.82rem; min-height: 34px; padding: 0.2rem 0.5rem; min-width: 36px; }
-  .btn-record { width: 40px; height: 40px; font-size: 1.2rem; }
-  .btn-icon { width: 30px; height: 30px; }
-  .btn-sm { font-size: 0.82rem; padding: 0.25rem 0.5rem; min-height: 32px; }
-  .container-fluid { padding-left: 0.7rem !important; padding-right: 0.7rem !important; }
-  .stats-row .col-3 { padding: 0 0.2rem; }
-  .stats-row .card { padding: 0.45rem 0.3rem !important; }
-  .stats-row .card .fs-5 { font-size: 1rem !important; }
+  /* More breathing room in main container */
+  .container-fluid { padding-left: 1rem !important; padding-right: 1rem !important; }
+
+  /* Stats row — bigger touch targets */
+  .stats-row .col-3 { padding: 0 0.35rem; }
+  .stats-row .card { padding: 0.65rem 0.4rem !important; }
+  .stats-row .card .fs-5 { font-size: 1.1rem !important; }
   .stats-row .card .small { font-size: 0.7rem !important; }
-  .form-control, .form-select { font-size: 0.9rem; }
-  .actividad-card { font-size: 0.9rem; }
+
+  /* Alumno items */
+  .alumno-item {
+    padding: 0.75rem 0.85rem;
+    margin-bottom: 0.5rem;
+  }
+  .alumno-top { margin-bottom: 0.7rem; gap: 0.65rem; }
+  .alumno-nombre { font-size: 1rem; }
+  .alumno-bottom { gap: 0.5rem; }
+  .alumno-bottom .dropdown-toggle { font-size: 0.85rem; padding: 0.35rem 0.55rem; min-height: 36px; }
+  .alumno-bottom .dropdown-menu { min-width: 200px; font-size: 0.88rem; }
+  .alumno-bottom .btn-save { font-size: 0.85rem; min-height: 36px; padding: 0.25rem 0.55rem; min-width: 40px; }
+
+  /* Buttons */
+  .btn-record { width: 44px; height: 44px; font-size: 1.3rem; }
+  .btn-icon { width: 34px; height: 34px; }
+  .btn-sm { font-size: 0.85rem; padding: 0.3rem 0.6rem; min-height: 34px; }
+  .btn { padding: 0.5rem 1rem; min-height: 42px; font-size: 0.92rem; }
+
+  /* Forms */
+  .form-control, .form-select { font-size: 0.95rem; min-height: 44px; padding: 0.55rem 0.75rem; }
+  .form-control-sm { min-height: 36px; padding: 0.3rem 0.5rem; font-size: 0.85rem; }
+  .form-select-sm { min-height: 36px; padding: 0.3rem 0.5rem; font-size: 0.85rem; }
+
+  /* Activity/indicator cards */
+  .actividad-card {
+    padding: 0.85rem 0.9rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.92rem;
+  }
+
+  /* Observation items */
+  .obs-item { padding: 0.85rem 0.9rem; margin-bottom: 0.5rem; font-size: 0.92rem; }
+
+  /* Section headers */
+  .section-header { margin-bottom: 0.8rem; gap: 0.5rem; }
+
+  /* Area headers */
+  .area-header { margin-top: 1.3rem; margin-bottom: 0.5rem; gap: 0.6rem; }
+
+  /* Modals */
+  .modal-header { padding: 1rem 1rem; }
+  .modal-body { padding: 1rem; }
+  .modal-footer { padding: 0.85rem 1rem; }
+
+  /* Tabs */
+  .nav-tabs .nav-link { padding: 0.55rem 1rem; font-size: 0.9rem; }
+
+  /* Cards */
+  .card, .alumno-item, .actividad-card, .obs-item { border-radius: var(--radius); }
+  .card { padding: 1rem; }
+
+  /* Bulk bar */
+  #bulkBar, #bulkBarArea, #bulkBarUni { margin-bottom: 0.6rem; }
 }
 
 

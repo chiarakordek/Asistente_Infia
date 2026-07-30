@@ -443,7 +443,7 @@ async function cargarObsAlumno(idAlumno) {
         <div class="obs-item ${o.tipo}" data-obs-id="${o.id_observacion}">
           <div class="d-flex justify-content-between align-items-start gap-2">
             <div class="flex-grow-1">
-              ${o.act_nombre ? `<small class="fw-medium text-primary">${o.act_nombre}</small>` : ''}
+              ${o.act_nombre ? `<small class="text-primary">${o.act_nombre}</small>` : ''}
               <p class="mb-1 mt-1">${o.nota_cruda}</p>
             </div>
             <input type="checkbox" class="obs-checkbox mt-1 flex-shrink-0" data-obs-id="${o.id_observacion}" style="display:none">
@@ -579,7 +579,7 @@ async function cargarObsHoy() {
     c.innerHTML = obs.map(o => `
       <div class="obs-item ${o.tipo}">
         <div class="d-flex justify-content-between">
-          <strong class="small">${o.al_apellido}, ${o.al_nombre}</strong>
+          <span class="small">${o.al_apellido}, ${o.al_nombre}</span>
           <span class="badge ${o.tipo === 'audio' ? 'bg-success' : 'bg-primary'}">${o.tipo === 'audio' ? '🎤' : '📝'}</span>
         </div>
         ${o.act_nombre ? `<small class="text-primary">${o.act_nombre}</small>` : ''}
