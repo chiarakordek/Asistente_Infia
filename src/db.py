@@ -237,7 +237,7 @@ def obtener_actividades_dia(id_usuario, fecha=None):
                 (id_usuario, fecha))
         else:
             rows = fetch_all(conn,
-                "SELECT a.*, u.titulo as unidad_titulo FROM actividades a LEFT JOIN unidades u ON a.id_unidad = u.id_unidad WHERE a.id_usuario = %s AND a.fecha = CURRENT_DATE ORDER BY a.area, a.nombre",
+                'SELECT a.*, u.titulo as unidad_titulo FROM actividades a LEFT JOIN unidades u ON a.id_unidad = u.id_unidad WHERE a.id_usuario = %s ORDER BY a.area, a.nombre',
                 (id_usuario,))
         return rows
     finally:
