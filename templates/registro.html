@@ -43,6 +43,13 @@
                 <input type="password" id="password2" class="form-control" placeholder="Repetí tu contraseña" required autocomplete="new-password">
                 <div class="invalid-feedback">Las contraseñas no coinciden</div>
               </div>
+              {% if requiere_codigo %}
+              <div class="mb-3">
+                <label class="form-label">Código de invitación</label>
+                <input type="text" id="codigo" class="form-control" placeholder="Te lo dio la maestra de sala" required autocomplete="off">
+                <div class="invalid-feedback">Necesitás un código de invitación</div>
+              </div>
+              {% endif %}
               <div class="row g-2 mb-3">
                 <div class="col-6">
                   <label class="form-label">Sala</label>

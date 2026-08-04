@@ -69,6 +69,8 @@ def seguridad_headers(resp):
     resp.headers['X-Frame-Options'] = 'DENY'
     resp.headers['X-XSS-Protection'] = '1; mode=block'
     resp.headers['Referrer-Policy'] = 'same-origin'
+    if not os.environ.get('FLASK_DEBUG'):
+        resp.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     csp = "default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net; media-src 'self' blob:; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:"
     resp.headers['Content-Security-Policy'] = csp
     return resp
@@ -167,7 +169,7 @@ def login_page():
 
 @app.route('/registro')
 def registro_page():
-    return render_template('registro.html')
+    return render_template('registro.html', requiere_codigo=bool(os.environ.get('CODIGO_INVITACION')))
 
 @app.route('/dashboard')
 @login_required
@@ -290,10 +292,18 @@ def api_login():
 
 @app.route('/api/register', methods=['POST'])
 def api_register():
+    ip = request.remote_addr or 'unknown'
+    if not revisar_rate_limit(ip):
+        return jsonify(error='Demasiados intentos. Esperá 15 minutos.'), 429
     data = request.json
     nombre = (data.get('nombre') or '').strip()
     email = (data.get('email') or '').strip()
     contraseña = data.get('contraseña') or ''
+    codigo_esperado = os.environ.get('CODIGO_INVITACION', '')
+    if codigo_esperado:
+        codigo = (data.get('codigo') or '').strip()
+        if not codigo or codigo != codigo_esperado:
+            return jsonify(error='El código de invitación es inválido'), 403
     if not nombre:
         return jsonify(error='El nombre es obligatorio'), 400
     if not email or '@' not in email or '.' not in email:
