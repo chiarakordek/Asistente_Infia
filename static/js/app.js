@@ -27,6 +27,7 @@ async function api(method, url, body) {
   }
   const r = await fetch(url, opts);
   if (r.status === 401) { window.location = '/login'; return; }
+  if (r.status === 402) { window.location = '/suscripcion'; throw new Error('Tu suscripción venció'); }
   if (!r.ok) {
     const e = await r.json().catch(() => ({}));
     throw new Error(e.error || 'Error de red');

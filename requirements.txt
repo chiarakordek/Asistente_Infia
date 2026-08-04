@@ -5,3 +5,4 @@ psycopg2-binary>=2.9
 werkzeug>=3.0
 fpdf2>=2.7
 tzdata
+requests>=2.31

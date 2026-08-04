@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Infia - Mi plan</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/static/icons/iconoinfia.png">
+  <link rel="icon" type="image/png" href="/static/icons/iconoinfia.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css?v=13">
+  <style>
+    .plan-card { border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1.4rem; }
+    .plan-card.recomendado { border-color: var(--primary); box-shadow: var(--shadow-md); }
+    .plan-card .precio { font-size: 1.8rem; color: var(--text); }
+    .plan-card .detalle { color: var(--text-muted); font-size: 0.82rem; }
+    .badge-plan { background: var(--primary-100); color: var(--primary); border-radius: 20px; font-size: 0.7rem; padding: 0.2rem 0.6rem; }
+    .estado-alerta { border-radius: var(--radius-sm); padding: 0.9rem 1rem; }
+  </style>
+</head>
+<body class="auth-page">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-11 col-sm-8 col-md-6 col-lg-5">
+        <div class="auth-card">
+          <div class="card-body">
+            <div class="text-center mb-3">
+              <div class="auth-brand">Infia</div>
+              <p class="auth-subtitle mt-1">Tu plan</p>
+            </div>
+
+            {% if estado == 'pago' %}
+              <div class="estado-alerta mb-3" style="background:var(--success-light)">
+                <div class="d-flex align-items-center gap-2">
+                  <span style="font-size:1.3rem">✅</span>
+                  <div>
+                    <div class="small" style="color:#065f46">Estás al día</div>
+                    {% if vencimiento %}
+                    <small class="text-muted">Tu plan vence el {{ vencimiento }}</small>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            {% elif estado == 'trial' %}
+              <div class="estado-alerta mb-3" style="background:var(--primary-50)">
+                <div class="d-flex align-items-center gap-2">
+                  <span style="font-size:1.3rem">🎁</span>
+                  <div>
+                    <div class="small" style="color:var(--primary-hover)">Estás en tu mes gratis</div>
+                    <small class="text-muted">Te quedan {{ dias }} días. Cuando termine, elegí un plan para continuar.</small>
+                  </div>
+                </div>
+              </div>
+            {% else %}
+              <div class="estado-alerta mb-3" style="background:var(--danger-light)">
+                <div class="d-flex align-items-center gap-2">
+                  <span style="font-size:1.3rem">⏰</span>
+                  <div>
+                    <div class="small" style="color:#991b1b">Tu suscripción venció</div>
+                    <small class="text-muted">Tus datos están guardados. Renová tu plan para seguir usando Infia.</small>
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <div class="plan-card h-100 d-flex flex-column">
+                  <span class="badge-plan align-self-start mb-2">MENSUAL</span>
+                  <div class="precio">$10.000</div>
+                  <div class="detalle mb-3">por mes<br>cobrado todos los meses</div>
+                  <button class="btn btn-primary w-100 mt-auto" onclick="iniciarPago('mensual')">Suscribirme</button>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="plan-card recomendado h-100 d-flex flex-column">
+                  <span class="badge-plan align-self-start mb-2">ANUAL</span>
+                  <div class="precio">$96.000</div>
+                  <div class="detalle mb-3">por año<br>equivalente a $8.000/mes · ahorrás $24.000</div>
+                  <button class="btn btn-primary w-100 mt-auto" onclick="iniciarPago('anual')">Suscribirme</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-center mb-3">
+              <button class="btn btn-sm btn-outline-secondary w-100" onclick="verificarEstado()">¿Ya pagaste? Verificar estado</button>
+            </div>
+
+            <div id="payMsg" class="alert alert-info d-none py-2 small text-center">Creando el pago...</div>
+            <div id="errorMsg" class="alert alert-danger d-none py-2 small text-center"></div>
+
+            <hr>
+            <p class="text-center small mb-0">
+              <a href="/api/logout" class="text-muted">Cerrar sesión</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app.js?v=9"></script>
+  <script>
+    const estado = {{ estado | tojson }};
+    let reintentos = 0;
+
+    async function iniciarPago(tipo) {
+      const msg = document.getElementById('payMsg');
+      const err = document.getElementById('errorMsg');
+      msg.classList.remove('d-none');
+      err.classList.add('d-none');
+      msg.textContent = 'Creando el pago...';
+      try {
+        const r = await api('POST', '/api/suscripcion/crear', { tipo });
+        if (r.init_point) window.location.href = r.init_point;
+      } catch (e) {
+        msg.classList.add('d-none');
+        err.textContent = e.message;
+        err.classList.remove('d-none');
+      }
+    }
+
+    async function verificarEstado() {
+      const err = document.getElementById('errorMsg');
+      const msg = document.getElementById('payMsg');
+      try {
+        const r = await api('GET', '/api/suscripcion/estado');
+        if (r.estado === 'pago' || r.estado === 'trial') {
+          msg.classList.remove('d-none');
+          msg.textContent = '¡Listo! Tu cuenta está activa. Redirigiendo...';
+          setTimeout(() => window.location = '/dashboard', 1200);
+        } else {
+          err.classList.remove('d-none');
+          err.textContent = 'Todavía no vemos el pago. Si ya pagaste, puede tardar unos segundos. Volvé a intentar.';
+        }
+      } catch (e) {
+        err.classList.remove('d-none');
+        err.textContent = e.message;
+      }
+    }
+
+    // Si volvimos de MercadoPago (hay query string), esperamos la confirmación
+    if (window.location.search && estado === 'vencida') {
+      const poll = setInterval(async () => {
+        reintentos++;
+        try {
+          const r = await api('GET', '/api/suscripcion/estado');
+          if (r.estado === 'pago' || r.estado === 'trial') {
+            clearInterval(poll);
+            verificarEstado();
+          }
+        } catch (e) {}
+        if (reintentos > 10) clearInterval(poll);
+      }, 3000);
+    }
+  </script>
+</body>
+</html>

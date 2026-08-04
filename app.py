@@ -85,6 +85,11 @@ from src.db import (
     renombrar_area, obtener_areas_usuario, eliminar_area, crear_area,
     crear_unidad, obtener_unidades, obtener_unidad, actualizar_unidad, eliminar_unidad,
     obtener_stats, guardar_reset_token,
+    obtener_suscripcion,
+)
+from src.suscripcion import (
+    estado_cuenta, dias_restantes, crear_preapproval,
+    suscripcion_activa, procesar_notificacion,
 )
 from src.transcriptor import transcribir_audio
 from src.generar_informe import formatear_informe_ia
@@ -128,6 +133,25 @@ def asegurar_bd():
             _bd_inicializada = True
         except Exception:
             pass  # Reintenta en el próximo request
+
+@app.before_request
+def verificar_suscripcion():
+    if not suscripcion_activa():
+        return
+    if 'user_id' not in session:
+        return
+    if request.path in ('/suscripcion', '/api/logout') or request.path.startswith('/api/suscripcion'):
+        return
+    try:
+        s = obtener_suscripcion(session['user_id'])
+    except Exception:
+        return
+    if not s:
+        return
+    if estado_cuenta(s) == 'vencida':
+        if request.is_json or request.path.startswith('/api/'):
+            return jsonify(error='Tu suscripción venció. Renová para seguir usando Infia.'), 402
+        return redirect('/suscripcion')
 
 # ─── PÁGINAS ─────────────────────────────
 
@@ -180,6 +204,66 @@ def alumno_page(id_alumno):
         return redirect('/dashboard')
     user = obtener_usuario_por_id(session['user_id'])
     return render_template('alumno.html', alumno=alumno, user=user)
+
+# ─── SUSCRIPCIÓN ─────────────────────────
+
+def _fmt_fecha(v):
+    if hasattr(v, 'strftime'):
+        return v.strftime('%d/%m/%Y')
+    return ''
+
+@app.route('/suscripcion')
+@login_required
+def suscripcion_page():
+    user = obtener_usuario_por_id(session['user_id'])
+    s = obtener_suscripcion(session['user_id'])
+    estado = estado_cuenta(s)
+    return render_template('suscripcion.html', user=user, estado=estado,
+                           dias=dias_restantes(s),
+                           vencimiento=_fmt_fecha(s.get('fecha_vencimiento')) if s else '')
+
+@app.route('/api/suscripcion/crear', methods=['POST'])
+@login_required
+def api_suscripcion_crear():
+    data = request.json or {}
+    tipo = data.get('tipo') or 'mensual'
+    if tipo not in ('mensual', 'anual'):
+        return jsonify(error='Tipo de plan inválido'), 400
+    user = obtener_usuario_por_id(session['user_id'])
+    try:
+        mp_id, init_point = crear_preapproval(user, tipo)
+    except Exception as e:
+        return jsonify(error='Error al crear el pago: ' + str(e)), 500
+    if not init_point:
+        return jsonify(error='No se pudo iniciar el pago'), 500
+    return jsonify(ok=True, init_point=init_point)
+
+@app.route('/api/suscripcion/estado', methods=['GET'])
+@login_required
+def api_suscripcion_estado():
+    s = obtener_suscripcion(session['user_id'])
+    estado = estado_cuenta(s)
+    return jsonify(estado=estado, dias=dias_restantes(s),
+                   vencimiento=_fmt_fecha(s.get('fecha_vencimiento')) if s else '')
+
+@app.route('/webhook/mercadopago', methods=['POST', 'GET'])
+def webhook_mercadopago():
+    secret = os.environ.get('MP_WEBHOOK_SECRET', '')
+    if request.args.get('secret') != secret:
+        return jsonify(error='no autorizado'), 403
+    mp_id = request.args.get('data.id')
+    if not mp_id:
+        try:
+            mp_id = (request.json or {}).get('data', {}).get('id')
+        except Exception:
+            mp_id = None
+    if not mp_id:
+        return jsonify(ok=True)
+    try:
+        procesar_notificacion(mp_id)
+    except Exception:
+        pass
+    return jsonify(ok=True)
 
 # ─── API: AUTH ───────────────────────────
 

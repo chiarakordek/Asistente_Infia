@@ -38,6 +38,12 @@ def fetch_one(conn, sql, params=None):
         r = cur.fetchone()
         return _serialize(dict(r)) if r else None
 
+def fetch_one_raw(conn, sql, params=None):
+    with conn.cursor(cursor_factory=extras.RealDictCursor) as cur:
+        cur.execute(sql, params or ())
+        r = cur.fetchone()
+        return dict(r) if r else None
+
 def _serialize(row):
     from datetime import date, datetime
     return {k: (v.strftime('%d/%m/%Y') if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
@@ -64,6 +70,22 @@ def inicializar_bd():
             sala TEXT DEFAULT '3 Años B',
             turno TEXT DEFAULT 'Tarde'
         )''')
+
+        execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+        execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'trial'")
+        execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS fecha_vencimiento DATE")
+        execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS mp_preapproval_id TEXT")
+
+        execute(conn, '''CREATE TABLE IF NOT EXISTS app_config (
+            clave TEXT PRIMARY KEY,
+            valor TEXT
+        )''')
+
+        migrado = fetch_one(conn, "SELECT valor FROM app_config WHERE clave = 'grandfathered'")
+        if not migrado:
+            execute(conn, "UPDATE usuarios SET plan = 'pago', fecha_vencimiento = '2099-12-31'")
+            execute(conn, "INSERT INTO app_config (clave, valor) VALUES ('grandfathered', '1')")
+            conn.commit()
 
         execute(conn, '''CREATE TABLE IF NOT EXISTS alumnos (
             id_alumno SERIAL PRIMARY KEY,
@@ -136,7 +158,7 @@ def crear_usuario(nombre, email, contraseña, sala, turno):
     conn = conectar()
     try:
         uid = execute_return(conn,
-            'INSERT INTO usuarios (nombre, email, contraseña, sala, turno) VALUES (%s,%s,%s,%s,%s) RETURNING id_usuario',
+            "INSERT INTO usuarios (nombre, email, contraseña, sala, turno, plan) VALUES (%s,%s,%s,%s,%s,'trial') RETURNING id_usuario",
             (nombre, email, contraseña, sala, turno))
         conn.commit()
         return uid
@@ -182,6 +204,31 @@ def guardar_reset_token(id_usuario, token, expira):
     try:
         execute(conn, 'INSERT INTO reset_tokens (id_usuario, token, expira) VALUES (%s,%s,%s)',
                 (id_usuario, token, expira))
+        conn.commit()
+    finally:
+        conn.close()
+
+# ─── SUSCRIPCIÓN ─────────────────────────
+
+def obtener_suscripcion(id_usuario):
+    conn = conectar()
+    try:
+        return fetch_one_raw(conn,
+            'SELECT fecha_registro, plan, fecha_vencimiento, mp_preapproval_id FROM usuarios WHERE id_usuario = %s',
+            (id_usuario,))
+    finally:
+        conn.close()
+
+def extender_suscripcion(id_usuario, dias, mp_preapproval_id):
+    conn = conectar()
+    try:
+        execute(conn,
+            '''UPDATE usuarios
+               SET plan = 'pago',
+                   fecha_vencimiento = GREATEST(CURRENT_DATE + %s::int, COALESCE(fecha_vencimiento, CURRENT_DATE + %s::int)),
+                   mp_preapproval_id = %s
+               WHERE id_usuario = %s''',
+            (dias, dias, mp_preapproval_id, id_usuario))
         conn.commit()
     finally:
         conn.close()
