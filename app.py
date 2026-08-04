@@ -88,6 +88,7 @@ from src.db import (
     crear_unidad, obtener_unidades, obtener_unidad, actualizar_unidad, eliminar_unidad,
     obtener_stats, guardar_reset_token,
     obtener_suscripcion,
+    obtener_todos_usuarios, obtener_pagos, obtener_ingresos_mes,
 )
 from src.suscripcion import (
     estado_cuenta, dias_restantes, crear_preapproval,
@@ -253,19 +254,65 @@ def webhook_mercadopago():
     secret = os.environ.get('MP_WEBHOOK_SECRET', '')
     if request.args.get('secret') != secret:
         return jsonify(error='no autorizado'), 403
+    tipo = request.args.get('type') or 'preapproval'
     mp_id = request.args.get('data.id')
     if not mp_id:
         try:
-            mp_id = (request.json or {}).get('data', {}).get('id')
+            j = request.json or {}
+            mp_id = j.get('data', {}).get('id')
+            tipo = j.get('type') or tipo
         except Exception:
             mp_id = None
     if not mp_id:
         return jsonify(ok=True)
     try:
-        procesar_notificacion(mp_id)
+        procesar_notificacion(mp_id, tipo)
     except Exception:
         pass
     return jsonify(ok=True)
+
+# ─── ADMIN ────────────────────────────────
+
+def es_admin():
+    if 'user_id' not in session:
+        return False
+    admin_email = os.environ.get('ADMIN_EMAIL', '')
+    if not admin_email:
+        return False
+    user = obtener_usuario_por_id(session['user_id'])
+    return bool(user and (user.get('email') or '').lower() == admin_email.lower())
+
+def _fmt_monto(n):
+    try:
+        return f'${int(n):,}'.replace(',', '.')
+    except Exception:
+        return f'${n}'
+
+@app.route('/admin')
+@login_required
+def admin_page():
+    if not es_admin():
+        return redirect('/dashboard')
+    usuarios = obtener_todos_usuarios()
+    pagos = obtener_pagos()
+    ingresos_mes = obtener_ingresos_mes()
+    filas = []
+    for u in usuarios:
+        estado = estado_cuenta(u)
+        filas.append({
+            'nombre': u['nombre'],
+            'email': u['email'],
+            'sala': u['sala'],
+            'estado': estado,
+            'registro': _fmt_fecha(u.get('fecha_registro')),
+            'vencimiento': _fmt_fecha(u.get('fecha_vencimiento')),
+        })
+    activos = sum(1 for f in filas if f['estado'] == 'pago')
+    trials = sum(1 for f in filas if f['estado'] == 'trial')
+    vencidas = sum(1 for f in filas if f['estado'] == 'vencida')
+    return render_template('admin.html', filas=filas, pagos=pagos,
+                           ingresos_mes=_fmt_monto(ingresos_mes),
+                           activos=activos, trials=trials, vencidas=vencidas)
 
 # ─── API: AUTH ───────────────────────────
 
@@ -652,7 +699,7 @@ def config_page():
 @login_required
 def perfil_page():
     user = obtener_usuario_por_id(session['user_id'])
-    return render_template('perfil.html', user=user)
+    return render_template('perfil.html', user=user, es_admin=es_admin())
 
 @app.route('/api/usuario/perfil', methods=['PUT'])
 @login_required

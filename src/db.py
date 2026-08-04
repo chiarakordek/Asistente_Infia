@@ -44,6 +44,11 @@ def fetch_one_raw(conn, sql, params=None):
         r = cur.fetchone()
         return dict(r) if r else None
 
+def fetch_all_raw(conn, sql, params=None):
+    with conn.cursor(cursor_factory=extras.RealDictCursor) as cur:
+        cur.execute(sql, params or ())
+        return [dict(r) for r in cur.fetchall()]
+
 def _serialize(row):
     from datetime import date, datetime
     return {k: (v.strftime('%d/%m/%Y') if isinstance(v, (date, datetime)) else v) for k, v in row.items()}
@@ -79,6 +84,15 @@ def inicializar_bd():
         execute(conn, '''CREATE TABLE IF NOT EXISTS app_config (
             clave TEXT PRIMARY KEY,
             valor TEXT
+        )''')
+
+        execute(conn, '''CREATE TABLE IF NOT EXISTS pagos (
+            id_pago SERIAL PRIMARY KEY,
+            id_usuario INTEGER NOT NULL REFERENCES usuarios(id_usuario),
+            monto INTEGER NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'mensual',
+            mp_payment_id TEXT,
+            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )''')
 
         migrado = fetch_one(conn, "SELECT valor FROM app_config WHERE clave = 'grandfathered'")
@@ -230,6 +244,43 @@ def extender_suscripcion(id_usuario, dias, mp_preapproval_id):
                WHERE id_usuario = %s''',
             (dias, dias, mp_preapproval_id, id_usuario))
         conn.commit()
+    finally:
+        conn.close()
+
+def registrar_pago(id_usuario, monto, tipo, mp_payment_id=None):
+    conn = conectar()
+    try:
+        execute(conn,
+            'INSERT INTO pagos (id_usuario, monto, tipo, mp_payment_id) VALUES (%s,%s,%s,%s)',
+            (id_usuario, monto, tipo, mp_payment_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+def obtener_todos_usuarios():
+    conn = conectar()
+    try:
+        return fetch_all_raw(conn,
+            'SELECT id_usuario, nombre, email, sala, turno, plan, fecha_registro, fecha_vencimiento FROM usuarios ORDER BY fecha_registro')
+    finally:
+        conn.close()
+
+def obtener_pagos():
+    conn = conectar()
+    try:
+        return fetch_all(conn,
+            '''SELECT p.id_pago, p.monto, p.tipo, p.fecha, u.nombre, u.email
+               FROM pagos p JOIN usuarios u ON p.id_usuario = u.id_usuario
+               ORDER BY p.fecha DESC''')
+    finally:
+        conn.close()
+
+def obtener_ingresos_mes():
+    conn = conectar()
+    try:
+        r = fetch_one(conn,
+            "SELECT COALESCE(SUM(monto),0) AS total FROM pagos WHERE date_trunc('month', fecha) = date_trunc('month', CURRENT_TIMESTAMP)")
+        return r['total']
     finally:
         conn.close()
 

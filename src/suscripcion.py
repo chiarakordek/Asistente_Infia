@@ -96,16 +96,43 @@ def obtener_preapproval(mp_id):
     return r.json()
 
 
-def procesar_notificacion(mp_id):
-    from src.db import extender_suscripcion
-    j = obtener_preapproval(mp_id)
-    status = j.get('status')
-    ext = j.get('external_reference') or ''
-    m = re.match(r'^infia-u(\d+)-(mensual|anual)$', ext)
+def obtener_pago(mp_id):
+    import requests
+    token = _mp_token()
+    r = requests.get(f'https://api.mercadopago.com/v1/payments/{mp_id}',
+                     headers={'Authorization': 'Bearer ' + token}, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+
+def _parse_referencia(ext):
+    m = re.match(r'^infia-u(\d+)-(mensual|anual)$', ext or '')
     if not m:
         return None
-    user_id, tipo = int(m.group(1)), m.group(2)
-    if status == 'authorized':
-        dias = 360 if tipo == 'anual' else 30
+    return int(m.group(1)), m.group(2)
+
+
+def procesar_notificacion(mp_id, tipo):
+    from src.db import extender_suscripcion, registrar_pago
+    if tipo == 'payment':
+        j = obtener_pago(mp_id)
+        if j.get('status') != 'approved':
+            return None
+        parsed = _parse_referencia(j.get('external_reference'))
+        if not parsed:
+            return None
+        user_id, tipo_plan = parsed
+        dias = 360 if tipo_plan == 'anual' else 30
         extender_suscripcion(user_id, dias, mp_id)
+        registrar_pago(user_id, int(j.get('transaction_amount') or 0), tipo_plan, mp_id)
+        return user_id
+    j = obtener_preapproval(mp_id)
+    if j.get('status') != 'authorized':
+        return None
+    parsed = _parse_referencia(j.get('external_reference'))
+    if not parsed:
+        return None
+    user_id, tipo_plan = parsed
+    dias = 360 if tipo_plan == 'anual' else 30
+    extender_suscripcion(user_id, dias, mp_id)
     return user_id
