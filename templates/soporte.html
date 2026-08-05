@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Infia - Soporte</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/static/icons/iconoinfia.png">
+  <link rel="icon" type="image/png" href="/static/icons/iconoinfia.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css?v=14">
+</head>
+<body>
+  <nav class="navbar navbar-expand navbar-dark shadow-sm sticky-top">
+    <div class="container-fluid px-3">
+      <a class="navbar-brand" href="/dashboard">Infia</a>
+      <div class="nav-links">
+        <a class="nav-link-item" href="/dashboard">← Volver</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-3 py-3" style="max-width:640px">
+    <div class="section-header mb-3">
+      <h6>Soporte</h6>
+      <small class="text-muted">Escribinos y te respondemos a la brevedad</small>
+    </div>
+
+    <div class="card chat-card">
+      <div id="chatMsgs" class="chat-msgs"></div>
+      <div class="chat-input-wrap">
+        <textarea id="chatTexto" class="form-control" rows="1" placeholder="Escribí tu consulta..." maxlength="1000"></textarea>
+        <button id="btnEnviar" class="btn btn-primary btn-icon-send">Enviar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app.js?v=10"></script>
+  <script>
+    let miId = null;
+    let ultimaCarga = 0;
+    let ultimoMensaje = 0;
+
+    function render(mensajes, scroll) {
+      const cont = document.getElementById('chatMsgs');
+      cont.innerHTML = '';
+      if (!mensajes.length) {
+        const vacio = document.createElement('div');
+        vacio.className = 'chat-vacio';
+        vacio.textContent = 'Hola! Dejanos tu consulta y te ayudamos.';
+        cont.appendChild(vacio);
+        return;
+      }
+      for (const m of mensajes) {
+        const el = document.createElement('div');
+        el.className = m.id_usuario === miId ? 'chat-burbuja propia' : 'chat-burbuja ajena';
+        const texto = document.createElement('div');
+        texto.className = 'chat-texto';
+        texto.textContent = m.texto;
+        const hora = document.createElement('div');
+        hora.className = 'chat-hora';
+        hora.textContent = m.fecha;
+        el.appendChild(texto);
+        el.appendChild(hora);
+        cont.appendChild(el);
+      }
+      if (scroll) cont.scrollTop = cont.scrollHeight;
+      ultimoMensaje = mensajes.length ? mensajes[mensajes.length - 1].id : 0;
+    }
+
+    async function cargar(scroll) {
+      try {
+        const r = await api('GET', '/api/soporte');
+        if (miId === null) miId = r.mi_id;
+        const hayNuevo = !ultimaCarga || (r.mensajes.length && r.mensajes[r.mensajes.length - 1].id !== ultimoMensaje);
+        render(r.mensajes, scroll || hayNuevo);
+        ultimaCarga = Date.now();
+      } catch (e) {
+        document.getElementById('chatMsgs').innerHTML =
+          '<div class="chat-vacio">No se pudo cargar el chat. Reintentando...</div>';
+      }
+    }
+
+    async function enviar() {
+      const ta = document.getElementById('chatTexto');
+      const texto = ta.value.trim();
+      if (!texto) return;
+      const btn = document.getElementById('btnEnviar');
+      btn.disabled = true;
+      try {
+        await api('POST', '/api/soporte/mensaje', { texto });
+        ta.value = '';
+        ta.style.height = 'auto';
+        await cargar(true);
+      } catch (e) {
+        mostrarToast(e.message);
+      } finally {
+        btn.disabled = false;
+        ta.focus();
+      }
+    }
+
+    document.getElementById('btnEnviar').addEventListener('click', enviar);
+    document.getElementById('chatTexto').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); }
+    });
+    document.getElementById('chatTexto').addEventListener('input', e => {
+      e.target.style.height = 'auto';
+      e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+    });
+
+    cargar(true);
+    setInterval(() => cargar(false), 4000);
+  </script>
+</body>
+</html>

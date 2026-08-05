@@ -95,6 +95,22 @@ def inicializar_bd():
             fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )''')
 
+        execute(conn, '''CREATE TABLE IF NOT EXISTS soportes (
+            id_soporte SERIAL PRIMARY KEY,
+            id_usuario INTEGER NOT NULL REFERENCES usuarios(id_usuario),
+            estado TEXT DEFAULT 'abierto',
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+
+        execute(conn, '''CREATE TABLE IF NOT EXISTS mensajes (
+            id_mensaje SERIAL PRIMARY KEY,
+            id_soporte INTEGER NOT NULL REFERENCES soportes(id_soporte),
+            id_usuario INTEGER NOT NULL REFERENCES usuarios(id_usuario),
+            texto TEXT NOT NULL,
+            leido BOOLEAN DEFAULT FALSE,
+            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+
         migrado = fetch_one(conn, "SELECT valor FROM app_config WHERE clave = 'grandfathered'")
         if not migrado:
             execute(conn, "UPDATE usuarios SET plan = 'pago', fecha_vencimiento = '2099-12-31'")
@@ -299,6 +315,103 @@ def eliminar_token(token):
     try:
         execute(conn, 'DELETE FROM reset_tokens WHERE token = %s', (token,))
         conn.commit()
+    finally:
+        conn.close()
+
+# ─── SOPORTE ─────────────────────────────
+
+def obtener_o_crear_soporte(id_usuario):
+    conn = conectar()
+    try:
+        r = fetch_one_raw(conn, 'SELECT id_soporte FROM soportes WHERE id_usuario = %s', (id_usuario,))
+        if not r:
+            id_soporte = execute_return(conn, 'INSERT INTO soportes (id_usuario) VALUES (%s) RETURNING id_soporte', (id_usuario,))
+            conn.commit()
+            return id_soporte
+        return r['id_soporte']
+    finally:
+        conn.close()
+
+def enviar_mensaje(id_soporte, id_usuario, texto):
+    conn = conectar()
+    try:
+        execute(conn,
+            'INSERT INTO mensajes (id_soporte, id_usuario, texto) VALUES (%s,%s,%s)',
+            (id_soporte, id_usuario, texto))
+        conn.commit()
+    finally:
+        conn.close()
+
+def obtener_mensajes_soporte(id_soporte):
+    conn = conectar()
+    try:
+        return fetch_all_raw(conn,
+            '''SELECT id_mensaje, id_usuario, texto, leido, fecha
+               FROM mensajes WHERE id_soporte = %s ORDER BY fecha''',
+            (id_soporte,))
+    finally:
+        conn.close()
+
+def marcar_mensajes_leidos(id_soporte, id_lector):
+    conn = conectar()
+    try:
+        execute(conn,
+            'UPDATE mensajes SET leido = TRUE WHERE id_soporte = %s AND id_usuario != %s AND leido = FALSE',
+            (id_soporte, id_lector))
+        conn.commit()
+    finally:
+        conn.close()
+
+def contar_no_leidos_usuario(id_usuario):
+    conn = conectar()
+    try:
+        r = fetch_one(conn,
+            '''SELECT COUNT(*) AS c FROM mensajes m JOIN soportes s ON m.id_soporte = s.id_soporte
+               WHERE s.id_usuario = %s AND m.id_usuario != %s AND m.leido = FALSE''',
+            (id_usuario, id_usuario))
+        return r['c']
+    finally:
+        conn.close()
+
+def listar_soportes_admin(id_admin):
+    conn = conectar()
+    try:
+        return fetch_all_raw(conn,
+            '''SELECT s.id_soporte, s.id_usuario, u.nombre, u.email,
+                      (SELECT COUNT(*) FROM mensajes m WHERE m.id_soporte = s.id_soporte AND m.id_usuario != %s AND m.leido = FALSE) AS no_leidos,
+                      (SELECT texto FROM mensajes m WHERE m.id_soporte = s.id_soporte ORDER BY m.fecha DESC LIMIT 1) AS ultimo,
+                      (SELECT fecha FROM mensajes m WHERE m.id_soporte = s.id_soporte ORDER BY m.fecha DESC LIMIT 1) AS ultima_fecha
+               FROM soportes s JOIN usuarios u ON s.id_usuario = u.id_usuario
+               ORDER BY (SELECT fecha FROM mensajes m WHERE m.id_soporte = s.id_soporte ORDER BY m.fecha DESC LIMIT 1) DESC NULLS LAST''',
+            (id_admin,))
+    finally:
+        conn.close()
+
+def reactivar_usuario(id_usuario, dias):
+    conn = conectar()
+    try:
+        execute(conn,
+            '''UPDATE usuarios SET plan = 'pago',
+               fecha_vencimiento = GREATEST(CURRENT_DATE + %s::int, COALESCE(fecha_vencimiento, CURRENT_DATE + %s::int))
+               WHERE id_usuario = %s''',
+            (dias, dias, id_usuario))
+        conn.commit()
+    finally:
+        conn.close()
+
+def enviar_comunicado(id_admin, texto):
+    conn = conectar()
+    try:
+        usuarios = fetch_all_raw(conn, 'SELECT id_usuario FROM usuarios')
+        for u in usuarios:
+            sop = fetch_one_raw(conn, 'SELECT id_soporte FROM soportes WHERE id_usuario = %s', (u['id_usuario'],))
+            if not sop:
+                sop = {'id_soporte': execute_return(conn, 'INSERT INTO soportes (id_usuario) VALUES (%s) RETURNING id_soporte', (u['id_usuario'],))}
+            execute(conn,
+                'INSERT INTO mensajes (id_soporte, id_usuario, texto) VALUES (%s,%s,%s)',
+                (sop['id_soporte'], id_admin, texto))
+        conn.commit()
+        return len(usuarios)
     finally:
         conn.close()
 

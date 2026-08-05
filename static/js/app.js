@@ -795,6 +795,37 @@ async function eliminarActividad(id) {
   } catch (e) { mostrarToast(e.message, 'danger'); }
 }
 
+// ─── BOTÓN DE SOPORTE FLOTANTE ───────────
+(function () {
+  const path = window.location.pathname;
+  if (!document.querySelector('.navbar')) return;
+  if (path.startsWith('/soporte') || path.startsWith('/admin')) return;
+
+  const btn = document.createElement('a');
+  btn.className = 'soporte-btn';
+  btn.href = '/soporte';
+  btn.title = 'Soporte';
+  btn.innerHTML = '<span>💬</span><span class="soporte-badge d-none"></span>';
+  document.body.appendChild(btn);
+
+  async function actualizarBadge() {
+    try {
+      const r = await fetch('/api/soporte/no-leidos', { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) return;
+      const data = await r.json();
+      const badge = btn.querySelector('.soporte-badge');
+      if (data.count > 0) {
+        badge.textContent = data.count > 99 ? '99+' : data.count;
+        badge.classList.remove('d-none');
+      } else {
+        badge.classList.add('d-none');
+      }
+    } catch (e) {}
+  }
+  actualizarBadge();
+  setInterval(actualizarBadge, 15000);
+})();
+
 // ─── SERVICE WORKER & INSTALL (PWA) ──────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});

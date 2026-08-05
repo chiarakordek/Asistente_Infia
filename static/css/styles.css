@@ -654,6 +654,130 @@ hr { margin: 1rem 0; opacity: 0.4; }
   flex: 1;
 }
 
+/* ─── Soporte / Chat ───────────────────── */
+.soporte-btn {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 9997;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(99,102,241,0.4);
+  transition: transform 0.15s ease;
+}
+.soporte-btn:active { transform: scale(0.92); }
+.soporte-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.68rem;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+
+.chat-card { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+.chat-msgs {
+  height: 60vh;
+  min-height: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 1rem;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.chat-burbuja {
+  max-width: 80%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.chat-burbuja.propia {
+  align-self: flex-end;
+  background: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.chat-burbuja.ajena {
+  align-self: flex-start;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+.chat-hora { font-size: 0.68rem; opacity: 0.7; margin-top: 0.2rem; }
+.chat-vacio { color: var(--text-muted); text-align: center; margin: auto; font-size: 0.85rem; }
+.chat-aviso {
+  align-self: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--primary-50);
+  border-radius: 12px;
+  padding: 0.3rem 0.8rem;
+  text-align: center;
+}
+.chat-input-wrap {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+  align-items: flex-end;
+}
+.chat-input-wrap textarea { resize: none; }
+.btn-icon-send { white-space: nowrap; min-height: 44px; }
+
+/* ─── Panel admin ──────────────────────── */
+.admin-layout { display: flex; gap: 1rem; align-items: flex-start; }
+.admin-sidebar { width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.admin-sidebar .btn { text-align: left; justify-content: flex-start; }
+.admin-main { flex: 1; min-width: 0; }
+.admin-seccion { display: none; }
+.admin-seccion.activa { display: block; }
+
+.thread-item {
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-bottom: 0.4rem;
+  background: var(--bg-card);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.thread-item:hover { border-color: var(--primary-light); }
+.thread-item.activo { border-color: var(--primary); background: var(--primary-50); }
+.thread-item .thread-nombre { font-size: 0.88rem; }
+.thread-item .thread-ultimo {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.soporte-layout { display: flex; gap: 1rem; align-items: stretch; }
+.soporte-lista { width: 280px; flex-shrink: 0; overflow-y: auto; max-height: 60vh; }
+.soporte-chat { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.soporte-chat .chat-msgs { height: 48vh; min-height: 260px; max-height: 48vh; }
+.soporte-vacio { color: var(--text-muted); text-align: center; margin: auto; font-size: 0.85rem; padding: 2rem; }
+
 /* ─── Responsive ─────────────────────────── */
 @media (max-width: 576px) {
   html { font-size: 16px; }
@@ -753,6 +877,25 @@ hr { margin: 1rem 0; opacity: 0.4; }
 
   /* Bulk bar */
   #bulkBar, #bulkBarArea, #bulkBarUni { margin-bottom: 0.6rem; }
+
+  /* Admin layout */
+  .admin-layout { flex-direction: column; }
+  .admin-sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0.4rem;
+  }
+  .admin-sidebar::-webkit-scrollbar { display: none; }
+  .admin-sidebar .btn { white-space: nowrap; text-align: center; }
+
+  /* Soporte */
+  .soporte-layout { flex-direction: column; }
+  .soporte-lista { width: 100%; max-height: 40vh; }
+  .soporte-chat .chat-msgs { height: 42vh; min-height: 220px; max-height: 42vh; }
+  .chat-msgs { height: 52vh; min-height: 280px; max-height: 52vh; }
 }
 
 

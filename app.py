@@ -89,6 +89,9 @@ from src.db import (
     obtener_stats, guardar_reset_token,
     obtener_suscripcion,
     obtener_todos_usuarios, obtener_pagos, obtener_ingresos_mes,
+    obtener_o_crear_soporte, enviar_mensaje, obtener_mensajes_soporte,
+    marcar_mensajes_leidos, contar_no_leidos_usuario, listar_soportes_admin,
+    reactivar_usuario, enviar_comunicado,
 )
 from src.suscripcion import (
     estado_cuenta, dias_restantes, crear_preapproval,
@@ -144,6 +147,10 @@ def verificar_suscripcion():
     if 'user_id' not in session:
         return
     if request.path in ('/suscripcion', '/api/logout') or request.path.startswith('/api/suscripcion'):
+        return
+    if request.path.startswith('/soporte') or request.path.startswith('/api/soporte'):
+        return
+    if request.path.startswith('/admin') or request.path.startswith('/api/admin'):
         return
     try:
         s = obtener_suscripcion(session['user_id'])
@@ -300,6 +307,7 @@ def admin_page():
     for u in usuarios:
         estado = estado_cuenta(u)
         filas.append({
+            'id': u['id_usuario'],
             'nombre': u['nombre'],
             'email': u['email'],
             'sala': u['sala'],
@@ -312,7 +320,120 @@ def admin_page():
     vencidas = sum(1 for f in filas if f['estado'] == 'vencida')
     return render_template('admin.html', filas=filas, pagos=pagos,
                            ingresos_mes=_fmt_monto(ingresos_mes),
-                           activos=activos, trials=trials, vencidas=vencidas)
+                           activos=activos, trials=trials, vencidas=vencidas,
+                           admin_id=session['user_id'])
+
+# ─── PÁGINAS Y API: SOPORTE ──────────────
+
+def _formatear_mensajes(mensajes):
+    res = []
+    for m in mensajes:
+        f = m['fecha']
+        try:
+            fecha_txt = f.strftime('%d/%m %H:%M') if hasattr(f, 'strftime') else str(f)
+        except Exception:
+            fecha_txt = ''
+        res.append({'id': m['id_mensaje'], 'id_usuario': m['id_usuario'],
+                    'texto': m['texto'], 'fecha': fecha_txt})
+    return res
+
+@app.route('/soporte')
+@login_required
+def soporte_page():
+    return render_template('soporte.html', user=obtener_usuario_por_id(session['user_id']))
+
+@app.route('/api/soporte', methods=['GET'])
+@login_required
+def api_soporte():
+    id_soporte = obtener_o_crear_soporte(session['user_id'])
+    marcar_mensajes_leidos(id_soporte, session['user_id'])
+    return jsonify(id_soporte=id_soporte,
+                   mi_id=session['user_id'],
+                   mensajes=_formatear_mensajes(obtener_mensajes_soporte(id_soporte)))
+
+@app.route('/api/soporte/mensaje', methods=['POST'])
+@login_required
+def api_soporte_mensaje():
+    texto = (request.json or {}).get('texto', '').strip()
+    if not texto:
+        return jsonify(error='Escribí un mensaje'), 400
+    id_soporte = obtener_o_crear_soporte(session['user_id'])
+    enviar_mensaje(id_soporte, session['user_id'], texto)
+    return jsonify(ok=True)
+
+@app.route('/api/soporte/no-leidos', methods=['GET'])
+@login_required
+def api_soporte_no_leidos():
+    return jsonify(count=contar_no_leidos_usuario(session['user_id']))
+
+@app.route('/api/admin/soporte', methods=['GET'])
+@login_required
+def api_admin_soporte_lista():
+    if not es_admin():
+        return jsonify(error='sin permiso'), 403
+    hilos = listar_soportes_admin(session['user_id'])
+    for h in hilos:
+        f = h.get('ultima_fecha')
+        try:
+            h['ultima_fecha'] = f.strftime('%d/%m %H:%M') if hasattr(f, 'strftime') else (str(f) if f else '')
+        except Exception:
+            h['ultima_fecha'] = ''
+    return jsonify(hilos=hilos)
+
+@app.route('/api/admin/soporte/<int:id_soporte>', methods=['GET'])
+@login_required
+def api_admin_soporte_detalle(id_soporte):
+    if not es_admin():
+        return jsonify(error='sin permiso'), 403
+    marcar_mensajes_leidos(id_soporte, session['user_id'])
+    return jsonify(id_soporte=id_soporte,
+                   mi_id=session['user_id'],
+                   mensajes=_formatear_mensajes(obtener_mensajes_soporte(id_soporte)))
+
+@app.route('/api/admin/soporte/<int:id_soporte>/mensaje', methods=['POST'])
+@login_required
+def api_admin_soporte_enviar(id_soporte):
+    if not es_admin():
+        return jsonify(error='sin permiso'), 403
+    texto = (request.json or {}).get('texto', '').strip()
+    if not texto:
+        return jsonify(error='Escribí un mensaje'), 400
+    enviar_mensaje(id_soporte, session['user_id'], texto)
+    return jsonify(ok=True)
+
+@app.route('/api/admin/comunicado', methods=['POST'])
+@login_required
+def api_admin_comunicado():
+    if not es_admin():
+        return jsonify(error='sin permiso'), 403
+    texto = (request.json or {}).get('texto', '').strip()
+    if not texto:
+        return jsonify(error='Escribí el comunicado'), 400
+    total = enviar_comunicado(session['user_id'], texto)
+    return jsonify(ok=True, total=total)
+
+@app.route('/api/admin/usuario/<int:id_usuario>/reactivar', methods=['POST'])
+@login_required
+def api_admin_reactivar(id_usuario):
+    if not es_admin():
+        return jsonify(error='sin permiso'), 403
+    dias = int((request.json or {}).get('dias', 30))
+    if dias <= 0 or dias > 3650:
+        dias = 30
+    reactivar_usuario(id_usuario, dias)
+    return jsonify(ok=True)
+
+@app.route('/api/admin/usuario/<int:id_usuario>/reset', methods=['POST'])
+@login_required
+def api_admin_reset(id_usuario):
+    if not es_admin():
+        return jsonify(error='sin permiso'), 403
+    import secrets
+    token = secrets.token_urlsafe(32)
+    expira = datetime.now() + timedelta(hours=24)
+    guardar_reset_token(id_usuario, token, expira)
+    base = os.environ.get('BASE_URL', 'https://infia.onrender.com').rstrip('/')
+    return jsonify(ok=True, reset_link=f'{base}/reset/{token}')
 
 # ─── API: AUTH ───────────────────────────
 
