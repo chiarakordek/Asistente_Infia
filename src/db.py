@@ -244,7 +244,7 @@ def obtener_suscripcion(id_usuario):
     conn = conectar()
     try:
         return fetch_one_raw(conn,
-            'SELECT fecha_registro, plan, fecha_vencimiento, mp_preapproval_id FROM usuarios WHERE id_usuario = %s',
+            'SELECT email, fecha_registro, plan, fecha_vencimiento, mp_preapproval_id FROM usuarios WHERE id_usuario = %s',
             (id_usuario,))
     finally:
         conn.close()

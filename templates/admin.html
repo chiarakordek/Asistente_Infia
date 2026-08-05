@@ -12,6 +12,7 @@
   <style>
     .estado-badge { border-radius: 20px; font-size: 0.7rem; padding: 0.2rem 0.6rem; }
     .estado-pago { background: var(--success-light); color: #065f46; }
+    .estado-gratis { background: var(--warning-light); color: #92400e; }
     .estado-trial { background: var(--primary-50); color: var(--primary-hover); }
     .estado-vencida { background: var(--danger-light); color: #991b1b; }
     .tabla-wrap { overflow-x: auto; }
@@ -81,6 +82,7 @@
                   <td>{{ f.sala }}</td>
                   <td>
                     {% if f.estado == 'pago' %}<span class="estado-badge estado-pago">Pagando</span>
+                    {% elif f.estado == 'gratis' %}<span class="estado-badge estado-gratis">Gratis</span>
                     {% elif f.estado == 'trial' %}<span class="estado-badge estado-trial">Prueba</span>
                     {% else %}<span class="estado-badge estado-vencida">Vencida</span>{% endif %}
                   </td>

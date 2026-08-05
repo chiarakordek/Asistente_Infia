@@ -95,7 +95,7 @@ from src.db import (
 )
 from src.suscripcion import (
     estado_cuenta, dias_restantes, crear_preapproval,
-    suscripcion_activa, procesar_notificacion,
+    suscripcion_activa, procesar_notificacion, es_gratis,
 )
 from src.transcriptor import transcribir_audio
 from src.generar_informe import formatear_informe_ia
@@ -157,6 +157,8 @@ def verificar_suscripcion():
     except Exception:
         return
     if not s:
+        return
+    if es_gratis(s.get('email')):
         return
     if estado_cuenta(s) == 'vencida':
         if request.is_json or request.path.startswith('/api/'):
@@ -243,7 +245,9 @@ def suscripcion_page():
     user = obtener_usuario_por_id(session['user_id'])
     s = obtener_suscripcion(session['user_id'])
     estado = estado_cuenta(s)
+    gratis = es_gratis(user.get('email'))
     return render_template('suscripcion.html', user=user, estado=estado,
+                           gratis=gratis,
                            dias=dias_restantes(s),
                            vencimiento=_fmt_fecha(s.get('fecha_vencimiento')) if s else '')
 
@@ -255,6 +259,8 @@ def api_suscripcion_crear():
     if tipo not in ('mensual', 'anual'):
         return jsonify(error='Tipo de plan inválido'), 400
     user = obtener_usuario_por_id(session['user_id'])
+    if es_gratis(user.get('email')):
+        return jsonify(error='Tu cuenta está exenta de pago'), 403
     try:
         mp_id, init_point = crear_preapproval(user, tipo)
     except Exception as e:
@@ -268,6 +274,8 @@ def api_suscripcion_crear():
 def api_suscripcion_estado():
     s = obtener_suscripcion(session['user_id'])
     estado = estado_cuenta(s)
+    if es_gratis(s.get('email')):
+        estado = 'pago'
     return jsonify(estado=estado, dias=dias_restantes(s),
                    vencimiento=_fmt_fecha(s.get('fecha_vencimiento')) if s else '')
 
@@ -321,6 +329,8 @@ def admin_page():
     filas = []
     for u in usuarios:
         estado = estado_cuenta(u)
+        if es_gratis(u.get('email')):
+            estado = 'gratis'
         filas.append({
             'id': u['id_usuario'],
             'nombre': u['nombre'],
@@ -330,7 +340,7 @@ def admin_page():
             'registro': _fmt_fecha(u.get('fecha_registro')),
             'vencimiento': _fmt_fecha(u.get('fecha_vencimiento')),
         })
-    activos = sum(1 for f in filas if f['estado'] == 'pago')
+    activos = sum(1 for f in filas if f['estado'] in ('pago', 'gratis'))
     trials = sum(1 for f in filas if f['estado'] == 'trial')
     vencidas = sum(1 for f in filas if f['estado'] == 'vencida')
     return render_template('admin.html', filas=filas, pagos=pagos,

@@ -24,6 +24,15 @@ def suscripcion_activa():
     return os.environ.get('SUSCRIPCION_ACTIVA', '0').lower() in ('1', 'true', 'si', 'yes')
 
 
+def emails_gratis():
+    raw = os.environ.get('GRATIS_EMAILS', '')
+    return {e.strip().lower() for e in raw.split(',') if e.strip()}
+
+
+def es_gratis(email):
+    return bool(email and str(email).strip().lower() in emails_gratis())
+
+
 def estado_cuenta(s):
     plan = s.get('plan') or 'trial'
     hoy_d = hoy()

@@ -29,7 +29,17 @@
               <p class="auth-subtitle mt-1">Tu plan</p>
             </div>
 
-            {% if estado == 'pago' %}
+            {% if gratis %}
+              <div class="estado-alerta mb-3" style="background:var(--success-light)">
+                <div class="d-flex align-items-center gap-2">
+                  <span style="font-size:1.3rem">✅</span>
+                  <div>
+                    <div class="small" style="color:#065f46">Tu cuenta está exenta de pago</div>
+                    <small class="text-muted">No tenés que abonar suscripción. Tu cuenta queda activa.</small>
+                  </div>
+                </div>
+              </div>
+            {% elif estado == 'pago' %}
               <div class="estado-alerta mb-3" style="background:var(--success-light)">
                 <div class="d-flex align-items-center gap-2">
                   <span style="font-size:1.3rem">✅</span>
@@ -63,6 +73,7 @@
               </div>
             {% endif %}
 
+            {% if not gratis %}
             <div class="row g-2 mb-3">
               <div class="col-6">
                 <div class="plan-card h-100 d-flex flex-column">
@@ -81,6 +92,7 @@
                 </div>
               </div>
             </div>
+            {% endif %}
 
             <div class="text-center mb-3">
               <button class="btn btn-sm btn-outline-secondary w-100" onclick="verificarEstado()">¿Ya pagaste? Verificar estado</button>
