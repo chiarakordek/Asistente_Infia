@@ -163,11 +163,26 @@ def verificar_suscripcion():
             return jsonify(error='Tu suscripción venció. Renová para seguir usando Infia.'), 402
         return redirect('/suscripcion')
 
+@app.before_request
+def redirigir_admin_a_panel():
+    if not os.environ.get('ADMIN_EMAIL'):
+        return
+    if 'user_id' not in session:
+        return
+    if request.path.startswith('/static'):
+        return
+    if es_admin():
+        if request.path.startswith('/admin') or request.path.startswith('/api/'):
+            return
+        return redirect('/admin')
+
 # ─── PÁGINAS ─────────────────────────────
 
 @app.route('/')
 def index():
     if 'user_id' in session:
+        if es_admin():
+            return redirect('/admin')
         return redirect('/dashboard')
     return redirect('/login')
 
@@ -454,7 +469,10 @@ def api_login():
         session.permanent = True
         session['user_id'] = user['id_usuario']
         _login_intentos[ip] = []
-        return jsonify(ok=True, nombre=user['nombre'])
+        admin_email = os.environ.get('ADMIN_EMAIL', '')
+        es_admin_login = bool(admin_email and (user['email'] or '').lower() == admin_email.lower())
+        return jsonify(ok=True, nombre=user['nombre'],
+                       destino='/admin' if es_admin_login else '/dashboard')
     except Exception as e:
         return jsonify(error='Error interno: ' + str(e)), 500
 

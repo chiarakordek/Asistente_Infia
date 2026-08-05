@@ -58,7 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try { const j = JSON.parse(text); msg = j.error || text; } catch(e) {}
         throw new Error(msg);
       }
-      window.location = '/dashboard';
+      const j = await r.json().catch(() => ({}));
+      window.location = j.destino || '/dashboard';
     } catch (err) {
       errEl.textContent = err.message;
       errEl.classList.remove('d-none');
