@@ -29,7 +29,7 @@
               </div>
               <div id="errorMsg" class="alert alert-danger d-none py-2 small"></div>
               <div id="successMsg" class="alert alert-success d-none py-2 small"></div>
-              <button type="submit" class="btn btn-primary w-100" id="btnSolicitar">Generar link de recuperación</button>
+              <button type="submit" class="btn btn-primary w-100" id="btnSolicitar">Enviar link de recuperación</button>
             </form>
             <hr>
             <p class="text-center small mb-0">
@@ -50,7 +50,7 @@
       okEl.classList.add('d-none');
       const btn = document.getElementById('btnSolicitar');
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generando...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Enviando...';
       try {
         const r = await fetch('/api/usuario/reset-solicitar', {
           method: 'POST',
@@ -66,7 +66,7 @@
         errEl.classList.remove('d-none');
       } finally {
         btn.disabled = false;
-        btn.innerHTML = 'Generar link de recuperación';
+        btn.innerHTML = 'Enviar link de recuperación';
       }
     });
   </script>
