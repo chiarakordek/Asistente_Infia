@@ -1,8 +1,12 @@
+import logging
 import os
 import smtplib
 import ssl
+import threading
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+_log = logging.getLogger('emailer')
 
 
 def enviar_email(destinatario, asunto, html):
@@ -20,13 +24,23 @@ def enviar_email(destinatario, asunto, html):
     msg.attach(MIMEText(html, 'html', 'utf-8'))
     contexto = ssl.create_default_context()
     if port == 587:
-        with smtplib.SMTP(host, port, timeout=20) as server:
+        with smtplib.SMTP(host, port, timeout=15) as server:
             server.ehlo()
             server.starttls(context=contexto)
             server.ehlo()
             server.login(usuario, password)
             server.sendmail(usuario, [destinatario], msg.as_string())
     else:
-        with smtplib.SMTP_SSL(host, port, context=contexto, timeout=20) as server:
+        with smtplib.SMTP_SSL(host, port, context=contexto, timeout=15) as server:
             server.login(usuario, password)
             server.sendmail(usuario, [destinatario], msg.as_string())
+
+
+def enviar_email_async(destinatario, asunto, html):
+    def trabajo():
+        try:
+            enviar_email(destinatario, asunto, html)
+        except Exception:
+            _log.exception('Error enviando email a %s', destinatario)
+    t = threading.Thread(target=trabajo, daemon=True)
+    t.start()

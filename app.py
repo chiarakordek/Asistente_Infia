@@ -462,13 +462,9 @@ def api_admin_reset(id_usuario):
     guardar_reset_token(id_usuario, token, expira)
     base = os.environ.get('BASE_URL', 'https://infia.onrender.com').rstrip('/')
     reset_link = f'{base}/reset/{token}'
-    from src.emailer import enviar_email
-    try:
-        enviar_email(user['email'], 'Recuperá tu contraseña de Infia',
-                     _mail_reset(user['nombre'], reset_link))
-    except Exception:
-        app.logger.exception('Error enviando email de reset admin')
-        return jsonify(error='No se pudo enviar el mail. Verificá la configuración SMTP e intentá de nuevo.'), 500
+    from src.emailer import enviar_email_async
+    enviar_email_async(user['email'], 'Recuperá tu contraseña de Infia',
+                       _mail_reset(user['nombre'], reset_link))
     return jsonify(ok=True, mensaje=f'Link enviado por mail a {user["email"]}', reset_link=reset_link)
 
 # ─── API: AUTH ───────────────────────────
@@ -824,12 +820,9 @@ def api_solicitar_reset():
     guardar_reset_token(user['id_usuario'], token, expira)
     base = os.environ.get('BASE_URL', 'https://infia.onrender.com').rstrip('/')
     reset_link = f'{base}/reset/{token}'
-    from src.emailer import enviar_email
-    try:
-        enviar_email(user['email'], 'Recuperá tu contraseña de Infia',
-                     _mail_reset(user['nombre'], reset_link))
-    except Exception:
-        app.logger.exception('Error enviando email de recuperación')
+    from src.emailer import enviar_email_async
+    enviar_email_async(user['email'], 'Recuperá tu contraseña de Infia',
+                       _mail_reset(user['nombre'], reset_link))
     return jsonify(ok=True, mensaje='Si el email existe, te enviamos un link por correo para recuperar tu contraseña.')
 
 @app.route('/api/usuario/reset/<token>', methods=['POST'])
