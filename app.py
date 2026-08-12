@@ -343,9 +343,31 @@ def admin_page():
     activos = sum(1 for f in filas if f['estado'] in ('pago', 'gratis'))
     trials = sum(1 for f in filas if f['estado'] == 'trial')
     vencidas = sum(1 for f in filas if f['estado'] == 'vencida')
+    hoy = datetime.now().date()
+    limite = hoy + timedelta(days=7)
+    proximos_vencer = []
+    for u in usuarios:
+        fv = u.get('fecha_vencimiento')
+        if not hasattr(fv, 'strftime'):
+            continue
+        fv_date = fv.date() if hasattr(fv, 'date') else fv
+        if not (hoy <= fv_date <= limite):
+            continue
+        if estado_cuenta(u) not in ('pago', 'trial'):
+            continue
+        dias = (fv_date - hoy).days
+        proximos_vencer.append({
+            'nombre': u['nombre'],
+            'vence': _fmt_fecha(fv),
+            'dias': dias,
+            'dias_txt': 'hoy' if dias == 0 else 'mañana' if dias == 1 else f'en {dias} días',
+        })
+    proximos_vencer.sort(key=lambda p: p['dias'])
+    proximos_vencer = proximos_vencer[:5]
     return render_template('admin.html', filas=filas, pagos=pagos,
                            ingresos_mes=_fmt_monto(ingresos_mes),
                            activos=activos, trials=trials, vencidas=vencidas,
+                           proximos_vencer=proximos_vencer,
                            admin_id=session['user_id'])
 
 # ─── PÁGINAS Y API: SOPORTE ──────────────
