@@ -21,7 +21,7 @@
               <div class="auth-brand">Infia</div>
               <p class="auth-subtitle mt-1">Recuperar contraseña</p>
             </div>
-            <p class="text-center text-muted small mb-3">No te preocupes, es normal olvidarla. Ingresá tu email y generamos una nueva.</p>
+            <p class="text-center text-muted small mb-3">No te preocupes, es normal olvidarla. Ingresá tu email y te enviamos un link para crear una nueva.</p>
             <form id="forgotForm">
               <div class="mb-3">
                 <label class="form-label">Email con el que te registraste</label>
@@ -59,14 +59,7 @@
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error);
-        if (data.reset_link) {
-          okEl.innerHTML = `
-            <div class="mb-2">Link generado con éxito:</div>
-            <a href="${data.reset_link}" class="btn btn-sm btn-outline-success w-100">Abrir para crear nueva contraseña</a>
-            <div class="mt-2 small text-muted">Si no podés hacer clic, copiá esta dirección: <code>${data.reset_link}</code></div>`;
-        } else {
-          okEl.textContent = data.mensaje || 'Si el email existe, revisá tu correo.';
-        }
+        okEl.textContent = data.mensaje || 'Si el email existe, revisá tu correo.';
         okEl.classList.remove('d-none');
       } catch (e) {
         errEl.textContent = e.message;

@@ -171,7 +171,8 @@
       <div class="modal-content">
         <div class="modal-header"><h6 class="mb-0">Resetear contraseña</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
-          <p class="small mb-2">Mandale este link a <span id="resetNombre" class="fw-normal"></span> (vence en 24 hs):</p>
+          <div id="resetOk" class="alert alert-success d-none py-2 small"></div>
+          <p class="small mb-2">Link de <span id="resetNombre" class="fw-normal"></span> (vence en 24 hs, por si no le llegó el mail):</p>
           <div class="d-flex gap-2">
             <input id="resetLink" class="form-control form-control-sm" readonly>
             <button id="btnCopiarLink" class="btn btn-sm btn-outline-secondary">Copiar</button>
@@ -215,6 +216,9 @@
           const r = await api('POST', '/api/admin/usuario/' + b.dataset.id + '/reset');
           document.getElementById('resetNombre').textContent = b.dataset.nombre;
           document.getElementById('resetLink').value = r.reset_link;
+          const okEl = document.getElementById('resetOk');
+          okEl.textContent = r.mensaje || '';
+          okEl.classList.remove('d-none');
           modalReset = new bootstrap.Modal(document.getElementById('modalReset'));
           modalReset.show();
         } catch (e) { mostrarToast(e.message); }

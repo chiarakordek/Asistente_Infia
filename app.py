@@ -454,11 +454,22 @@ def api_admin_reset(id_usuario):
     if not es_admin():
         return jsonify(error='sin permiso'), 403
     import secrets
+    user = obtener_usuario_por_id(id_usuario)
+    if not user:
+        return jsonify(error='Usuario no encontrado'), 404
     token = secrets.token_urlsafe(32)
     expira = datetime.now() + timedelta(hours=24)
     guardar_reset_token(id_usuario, token, expira)
     base = os.environ.get('BASE_URL', 'https://infia.onrender.com').rstrip('/')
-    return jsonify(ok=True, reset_link=f'{base}/reset/{token}')
+    reset_link = f'{base}/reset/{token}'
+    from src.emailer import enviar_email
+    try:
+        enviar_email(user['email'], 'Recuperá tu contraseña de Infia',
+                     _mail_reset(user['nombre'], reset_link))
+    except Exception:
+        app.logger.exception('Error enviando email de reset admin')
+        return jsonify(error='No se pudo enviar el mail. Verificá la configuración SMTP e intentá de nuevo.'), 500
+    return jsonify(ok=True, mensaje=f'Link enviado por mail a {user["email"]}', reset_link=reset_link)
 
 # ─── API: AUTH ───────────────────────────
 
@@ -777,6 +788,24 @@ def api_rename_area():
 
 # ─── API: CAMBIO / RESET DE CONTRASEÑA ────
 
+def _mail_reset(nombre, reset_link):
+    return f'''<!DOCTYPE html>
+<html lang="es">
+<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f6f8fb">
+  <div style="max-width:520px;margin:0 auto;padding:24px">
+    <div style="background:#ffffff;border-radius:12px;padding:32px;border:1px solid #e3e8f0">
+      <h2 style="margin:0 0 12px;color:#1e293b">Hola {nombre}</h2>
+      <p style="margin:0 0 16px;color:#475569;font-size:15px;line-height:1.5">Recibimos una solicitud para recuperar tu contraseña de <strong>Infia</strong>. Hacé clic en el botón para crear una nueva:</p>
+      <a href="{reset_link}" style="display:inline-block;background:#0d6efd;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600">Crear nueva contraseña</a>
+      <p style="margin:16px 0 0;color:#475569;font-size:14px;line-height:1.5">El link vence en <strong>1 hora</strong>. Si el botón no funciona, copiá esta dirección en tu navegador:</p>
+      <p style="margin:8px 0 0;word-break:break-all"><code style="color:#0d6efd;font-size:13px">{reset_link}</code></p>
+      <hr style="border:none;border-top:1px solid #eef2f7;margin:24px 0">
+      <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.5">Si no fuiste vos quien pidió el reset, ignorá este mail: tu contraseña no cambió.</p>
+    </div>
+  </div>
+</body>
+</html>'''
+
 @app.route('/api/usuario/reset-solicitar', methods=['POST'])
 def api_solicitar_reset():
     ip = request.remote_addr or 'unknown'
@@ -788,16 +817,20 @@ def api_solicitar_reset():
         return jsonify(error='Ingresá tu email'), 400
     user = obtener_usuario_por_email(email)
     if not user:
-        # No revelar si el email existe o no
-        return jsonify(ok=True, mensaje='Si el email existe, recibirás instrucciones')
+        return jsonify(ok=True, mensaje='Si el email existe, te enviamos un link por correo para recuperar tu contraseña.')
     import secrets
-    from datetime import datetime, timedelta
     token = secrets.token_urlsafe(32)
     expira = datetime.now() + timedelta(hours=1)
     guardar_reset_token(user['id_usuario'], token, expira)
-    # Como no tenemos email, devolvemos el link directo
-    reset_link = f"/reset/{token}"
-    return jsonify(ok=True, reset_link=reset_link, mensaje='Link generado. Hacé clic en el enlace para resetear tu contraseña.')
+    base = os.environ.get('BASE_URL', 'https://infia.onrender.com').rstrip('/')
+    reset_link = f'{base}/reset/{token}'
+    from src.emailer import enviar_email
+    try:
+        enviar_email(user['email'], 'Recuperá tu contraseña de Infia',
+                     _mail_reset(user['nombre'], reset_link))
+    except Exception:
+        app.logger.exception('Error enviando email de recuperación')
+    return jsonify(ok=True, mensaje='Si el email existe, te enviamos un link por correo para recuperar tu contraseña.')
 
 @app.route('/api/usuario/reset/<token>', methods=['POST'])
 def api_ejecutar_reset(token):
