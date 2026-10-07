@@ -61,7 +61,6 @@ def formatear_informe_ia(id_alumno):
         return None
 
     nombre, apellido, sala, turno, docente = alumno['nombre'], alumno['apellido'], alumno['sala'], alumno['turno'], alumno['docente']
-    nombre_completo = f"{apellido}, {nombre}"
 
     obs_por_area = {a: [] for a in AREAS_INFORME}
     areas_map = {
@@ -84,14 +83,18 @@ def formatear_informe_ia(id_alumno):
         if lista:
             texto_observaciones += f"\n{area}:\n" + "\n".join(lista) + "\n"
 
+    # Evita reenviar al proveedor los identificadores conocidos del alumno.
+    texto_observaciones_ia = texto_observaciones.replace(nombre, 'ALUMNO').replace(apellido, 'ALUMNO')
+
     system_prompt = "Sos un docente de nivel inicial argentino. Generá informes evaluativos formales pero cálidos, siempre en positivo."
-    user_prompt = f"""Generá un informe evaluativo para {nombre_completo} siguiendo EXACTAMENTE este formato:
+    user_prompt = f"""Generá un informe evaluativo para ALUMNO siguiendo EXACTAMENTE este formato.
+No incluyas nombres, apellidos, nombres de docentes, salas ni otros datos identificatorios reales.
 
 INFORMES EVALUATIVOS
 INFORME 2025 - PRIMERA ETAPA
-Sala: {sala} - Docente: {docente} - Turno: {turno}
+Sala: SALA - Docente: DOCENTE - Turno: TURNO
 
-{nombre.upper()} {apellido.upper()}
+ALUMNO
 
 IDENTIDAD Y CONVIVENCIA:
 [Párrafo de 4-6 líneas]
@@ -111,7 +114,7 @@ REGLAS (obligatorio):
 - Cada párrafo 4-6 líneas
 - Lenguaje formal pero cálido, SIEMPRE EN POSITIVO
 - Usá frases como "se está iniciando en...", "paulatinamente logra...", "disfruta de...", "logró...", "está en proceso de...", "presenta avances en...", "necesita del estímulo de la docente para...", "se observan progresos en..."
-- Nombrá al alumno como "{nombre}" dentro de los párrafos
+- Nombrá al alumno como "ALUMNO" dentro de los párrafos
 - Basate en las observaciones de abajo
 - Si un área no tiene observaciones, escribí un párrafo genérico positivo
 - NO incluyas nada más que el informe
@@ -158,7 +161,7 @@ A partir de la observación diaria, logra reconocer y dar cuenta de algunos fen�
 IMPORTANTE: El ejemplo es solo para el ESTILO. NO copies el contenido. Usá las observaciones reales del alumno de abajo para escribir párrafos originales.
 
 OBSERVACIONES DEL ALUMNO:
-{texto_observaciones}"""
+{texto_observaciones_ia}"""
 
     for intento in range(3):
         try:
@@ -173,6 +176,11 @@ OBSERVACIONES DEL ALUMNO:
             )
             texto = response.choices[0].message.content
             if texto:
+                # Los datos identificatorios se incorporan localmente, no se envían al proveedor.
+                texto = texto.replace('ALUMNO', nombre)
+                texto = texto.replace('SALA', sala or '')
+                texto = texto.replace('DOCENTE', docente or '')
+                texto = texto.replace('TURNO', turno or '')
                 return texto
             return None
         except Exception as e:

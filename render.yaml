@@ -13,3 +13,12 @@ services:
         sync: false
       - key: FLASK_DEBUG
         value: "0"
+  - type: cron
+    name: asistente-informes-limpieza
+    env: python
+    schedule: "0 3 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/procesar_bajas.py
+    envVars:
+      - key: DATABASE_URL
+        sync: false

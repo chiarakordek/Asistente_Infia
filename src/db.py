@@ -80,6 +80,8 @@ def inicializar_bd():
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'trial'")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS fecha_vencimiento DATE")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS mp_preapproval_id TEXT")
+        execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_solicitada_en TIMESTAMP")
+        execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS motivo_baja TEXT")
 
         execute(conn, '''CREATE TABLE IF NOT EXISTS app_config (
             clave TEXT PRIMARY KEY,
@@ -209,6 +211,75 @@ def obtener_usuario_por_id(id_usuario):
     conn = conectar()
     try:
         return fetch_one(conn, 'SELECT * FROM usuarios WHERE id_usuario = %s', (id_usuario,))
+    finally:
+        conn.close()
+
+def solicitar_baja_usuario(id_usuario, motivo):
+    conn = conectar()
+    try:
+        execute(conn, '''UPDATE usuarios
+                         SET baja_solicitada_en = CURRENT_TIMESTAMP,
+                             motivo_baja = %s
+                         WHERE id_usuario = %s AND baja_solicitada_en IS NULL''',
+                (motivo, id_usuario))
+        conn.commit()
+    finally:
+        conn.close()
+
+def cancelar_baja_usuario(id_usuario):
+    conn = conectar()
+    try:
+        execute(conn, '''UPDATE usuarios
+                         SET baja_solicitada_en = NULL, motivo_baja = NULL
+                         WHERE id_usuario = %s''', (id_usuario,))
+        conn.commit()
+    finally:
+        conn.close()
+
+def eliminar_usuario_completamente(id_usuario):
+    """Elimina los datos propios de una cuenta y devuelve las rutas de sus audios."""
+    conn = conectar()
+    try:
+        audios = fetch_all_raw(conn, '''
+            SELECT o.ruta_audio
+            FROM observaciones o
+            JOIN alumnos a ON a.id_alumno = o.id_alumno
+            WHERE a.id_usuario = %s AND o.ruta_audio IS NOT NULL
+        ''', (id_usuario,))
+        execute(conn, '''DELETE FROM mensajes
+                         WHERE id_usuario = %s OR id_soporte IN
+                           (SELECT id_soporte FROM soportes WHERE id_usuario = %s)''',
+                (id_usuario, id_usuario))
+        execute(conn, 'DELETE FROM soportes WHERE id_usuario = %s', (id_usuario,))
+        execute(conn, '''DELETE FROM informes_finales
+                         WHERE id_alumno IN (SELECT id_alumno FROM alumnos WHERE id_usuario = %s)''',
+                (id_usuario,))
+        execute(conn, '''DELETE FROM observaciones
+                         WHERE id_alumno IN (SELECT id_alumno FROM alumnos WHERE id_usuario = %s)''',
+                (id_usuario,))
+        execute(conn, 'DELETE FROM alumnos WHERE id_usuario = %s', (id_usuario,))
+        execute(conn, 'DELETE FROM actividades WHERE id_usuario = %s', (id_usuario,))
+        execute(conn, 'DELETE FROM unidades WHERE id_usuario = %s', (id_usuario,))
+        execute(conn, 'DELETE FROM areas_usuario WHERE id_usuario = %s', (id_usuario,))
+        execute(conn, 'DELETE FROM reset_tokens WHERE id_usuario = %s', (id_usuario,))
+        execute(conn, 'DELETE FROM pagos WHERE id_usuario = %s', (id_usuario,))
+        execute(conn, 'DELETE FROM usuarios WHERE id_usuario = %s', (id_usuario,))
+        conn.commit()
+        return [a['ruta_audio'] for a in audios]
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+def obtener_bajas_vencidas(dias=7):
+    conn = conectar()
+    try:
+        return fetch_all_raw(conn, '''
+            SELECT id_usuario FROM usuarios
+            WHERE baja_solicitada_en IS NOT NULL
+              AND baja_solicitada_en <= CURRENT_TIMESTAMP - (%s * INTERVAL '1 day')
+        ''', (dias,))
     finally:
         conn.close()
 

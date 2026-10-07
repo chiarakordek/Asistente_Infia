@@ -92,6 +92,8 @@ from src.db import (
     obtener_o_crear_soporte, enviar_mensaje, obtener_mensajes_soporte,
     marcar_mensajes_leidos, contar_no_leidos_usuario, listar_soportes_admin,
     reactivar_usuario, enviar_comunicado,
+    solicitar_baja_usuario, cancelar_baja_usuario,
+    eliminar_usuario_completamente, obtener_bajas_vencidas,
 )
 from src.suscripcion import (
     estado_cuenta, dias_restantes, crear_preapproval,
@@ -141,12 +143,43 @@ def asegurar_bd():
             pass  # Reintenta en el próximo request
 
 @app.before_request
+def procesar_bajas_programadas():
+    if request.path.startswith('/static'):
+        return
+    try:
+        for baja in obtener_bajas_vencidas():
+            for ruta in eliminar_usuario_completamente(baja['id_usuario']):
+                if ruta:
+                    audio_path = os.path.join(AUDIO_DIR, os.path.basename(ruta))
+                    if os.path.exists(audio_path):
+                        os.remove(audio_path)
+            if session.get('user_id') == baja['id_usuario']:
+                session.clear()
+    except Exception:
+        pass
+
+@app.before_request
+def bloquear_cuenta_en_baja():
+    if 'user_id' not in session or request.path.startswith('/static'):
+        return
+    if request.path in ('/config', '/api/usuario/baja/cancelar', '/api/usuario/baja', '/api/logout'):
+        return
+    try:
+        user = obtener_usuario_por_id(session['user_id'])
+        if user and user.get('baja_solicitada_en'):
+            if request.is_json or request.path.startswith('/api/'):
+                return jsonify(error='Tu cuenta está suspendida y pendiente de eliminación.'), 423
+            return redirect('/config')
+    except Exception:
+        return
+
+@app.before_request
 def verificar_suscripcion():
     if not suscripcion_activa():
         return
     if 'user_id' not in session:
         return
-    if request.path in ('/suscripcion', '/api/logout') or request.path.startswith('/api/suscripcion'):
+    if request.path in ('/suscripcion', '/config', '/api/logout', '/api/usuario/baja/cancelar') or request.path.startswith('/api/suscripcion'):
         return
     if request.path.startswith('/soporte') or request.path.startswith('/api/soporte'):
         return
@@ -195,6 +228,14 @@ def login_page():
 @app.route('/registro')
 def registro_page():
     return render_template('registro.html', requiere_codigo=bool(os.environ.get('CODIGO_INVITACION')))
+
+@app.route('/privacidad')
+def privacidad_page():
+    return render_template('privacidad.html')
+
+@app.route('/terminos')
+def terminos_page():
+    return render_template('terminos.html')
 
 @app.route('/dashboard')
 @login_required
@@ -505,6 +546,8 @@ def api_login():
         user = obtener_usuario_por_email(email)
         if not user or not check_password_hash(user['contraseña'], contraseña):
             return jsonify(error='Email o contraseña incorrectos'), 401
+        if user.get('baja_solicitada_en'):
+            return jsonify(error='Tu cuenta está pendiente de eliminación. Podés cancelarla desde tu sesión si todavía está activa.'), 403
         session.permanent = True
         session['user_id'] = user['id_usuario']
         _login_intentos[ip] = []
@@ -521,6 +564,8 @@ def api_register():
     if not revisar_rate_limit(ip):
         return jsonify(error='Demasiados intentos. Esperá 15 minutos.'), 429
     data = request.json
+    if not data.get('acepta_terminos'):
+        return jsonify(error='Tenés que aceptar los Términos de Uso y la Política de Privacidad'), 400
     nombre = (data.get('nombre') or '').strip()
     email = (data.get('email') or '').strip()
     contraseña = data.get('contraseña') or ''
@@ -548,6 +593,30 @@ def api_register():
 @app.route('/api/logout')
 def api_logout():
     session.clear()
+    return jsonify(ok=True)
+
+@app.route('/api/usuario/baja', methods=['POST'])
+@login_required
+def api_solicitar_baja():
+    data = request.json or {}
+    motivo = (data.get('motivo') or '').strip()
+    if len(motivo) < 5:
+        return jsonify(error='Contanos brevemente el motivo de la baja'), 400
+    if len(motivo) > 1000:
+        return jsonify(error='El motivo no puede superar los 1000 caracteres'), 400
+    user = obtener_usuario_por_id(session['user_id'])
+    if user.get('baja_solicitada_en'):
+        return jsonify(error='La baja ya fue solicitada'), 400
+    solicitar_baja_usuario(session['user_id'], motivo)
+    return jsonify(ok=True, mensaje='Tu cuenta quedó suspendida. Se eliminará definitivamente en 7 días.'), 202
+
+@app.route('/api/usuario/baja/cancelar', methods=['POST'])
+@login_required
+def api_cancelar_baja():
+    user = obtener_usuario_por_id(session['user_id'])
+    if not user.get('baja_solicitada_en'):
+        return jsonify(error='No hay una baja pendiente'), 400
+    cancelar_baja_usuario(session['user_id'])
     return jsonify(ok=True)
 
 @app.route('/api/me')
@@ -729,17 +798,19 @@ def api_subir_audio():
     audio_filename = f'audio_{session["user_id"]}_{os.urandom(4).hex()}{ext}'
     path = os.path.join(AUDIO_DIR, audio_filename)
     f.save(path)
-    ruta_audio = f'/static/audios/{audio_filename}'
-    texto = transcribir_audio(int(request.form['id_alumno']),
-                              request.form.get('id_actividad'),
-                              path, session['user_id'])
-    if not texto:
-        texto = 'Audio grabado (transcripción no disponible)'
-        import time; time.sleep(0.1)
+    try:
+        texto = transcribir_audio(int(request.form['id_alumno']),
+                                  request.form.get('id_actividad'),
+                                  path, session['user_id'])
+        if not texto:
+            texto = 'Audio grabado (transcripción no disponible)'
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
     guardar_observacion(int(request.form['id_alumno']),
                         request.form.get('id_actividad', type=int),
-                        texto, 'audio', ruta_audio=ruta_audio)
-    return jsonify(ok=True, texto=texto, ruta_audio=ruta_audio), 201
+                        texto, 'audio', ruta_audio=None)
+    return jsonify(ok=True, texto=texto, ruta_audio=None), 201
 
 # ─── API: AREAS ───────────────────────────
 
@@ -890,7 +961,8 @@ def api_cambiar_contraseña():
 @app.route('/config')
 @login_required
 def config_page():
-    return render_template('config.html')
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('config.html', baja_pendiente=bool(user and user.get('baja_solicitada_en')))
 
 @app.route('/perfil')
 @login_required

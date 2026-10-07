@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const email = rf.email.value.trim();
     const pw = rf.password.value;
     const pw2 = rf.password2.value;
+    const aceptaTerminos = rf.aceptaTerminos;
     const errEl = document.getElementById('errorMsg');
     errEl.classList.add('d-none');
     // Reset validation
@@ -84,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!email || !email.includes('@')) { rf.email.classList.add('is-invalid'); valid = false; }
     if (pw.length < 8) { rf.password.classList.add('is-invalid'); valid = false; }
     if (pw !== pw2) { rf.password2.classList.add('is-invalid'); valid = false; }
+    if (aceptaTerminos && !aceptaTerminos.checked) { aceptaTerminos.classList.add('is-invalid'); valid = false; }
     const invCodigo = rf.codigo;
     if (invCodigo && !invCodigo.value.trim()) { invCodigo.classList.add('is-invalid'); valid = false; }
     if (!valid) return;
@@ -91,8 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creando...';
     try {
       await api('POST', '/api/register', {
-        nombre, email, contraseña: pw, sala: rf.sala.value, turno: rf.turno.value,
-        codigo: invCodigo ? invCodigo.value.trim() : ''
+         nombre, email, contraseña: pw, sala: rf.sala.value, turno: rf.turno.value,
+         codigo: invCodigo ? invCodigo.value.trim() : '',
+         acepta_terminos: aceptaTerminos ? aceptaTerminos.checked : false
       });
       window.location = '/dashboard';
     } catch (err) {
