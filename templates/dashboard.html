@@ -2,64 +2,68 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Infia - Panel</title>
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/static/icons/iconoinfia.png">
   <link rel="icon" type="image/png" href="/static/icons/iconoinfia.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=14">
+  <link rel="stylesheet" href="/static/css/styles.css?v=25">
 </head>
 <body>
-  <nav class="navbar navbar-expand navbar-dark shadow-sm sticky-top">
-    <div class="container-fluid px-3">
-      <a class="navbar-brand" href="/dashboard">Infia</a>
-      <div class="nav-links">
-        <a class="nav-link-item active" href="/dashboard">Alumnos</a>
-        <a class="nav-link-item" href="/actividades">Indicadores</a>
-        <a class="nav-link-item" href="/areas">Áreas</a>
-        <a class="nav-link-item" href="/unidades">Unidades</a>
-        <span class="nav-divider"></span>
-        <a class="nav-link-item" href="/perfil">Perfil</a>
-        <span class="nav-divider"></span>
-        <button class="nav-link-logout" onclick="logout()">Salir</button>
-      </div>
-    </div>
-  </nav>
+  {% set active_page = 'dashboard' %}{% include '_nav.html' %}
 
-  <div class="container-fluid px-3 py-3" style="max-width:800px">
-    <!-- Stats -->
-    <div class="row g-2 mb-3 stats-row">
-      <div class="col-3"><div class="card p-2"><div class="fs-5 text-primary" id="statAlumnos">-</div><div class="small text-muted">Alumnos</div></div></div>
-      <div class="col-3"><div class="card p-2"><div class="fs-5 text-success" id="statObsHoy">-</div><div class="small text-muted">Hoy</div></div></div>
-      <div class="col-3"><div class="card p-2"><div class="fs-5" style="color:var(--accent)" id="statTotalObs">-</div><div class="small text-muted">Total</div></div></div>
-      <div class="col-3"><div class="card p-2"><div class="fs-5" style="color:var(--primary-light)" id="statInformes">-</div><div class="small text-muted">Informes</div></div></div>
-    </div>
+  <main class="container-fluid app-page dashboard-page px-3 py-4">
+    <section class="welcome-card mb-4" aria-labelledby="welcomeTitle">
+      <div class="welcome-copy">
+        <p class="eyebrow mb-2">TU AULA, EN UN SOLO LUGAR</p>
+        <div class="welcome-greeting">
+          <div class="welcome-profile-photo" aria-label="Tu foto de perfil">
+            {% if user.avatar_data %}<img src="{{ user.avatar_data }}" alt="Foto de {{ user.nombre }}">{% else %}<span>{{ user.nombre[:1] | upper }}</span>{% endif %}
+          </div>
+          <div><h1 class="welcome-title" id="welcomeTitle">Hola, {{ user.nombre }}</h1><p class="mb-0">Cada observación ayuda a contar mejor el recorrido de tus alumnos.</p></div>
+        </div>
+      </div>
+      <a class="btn welcome-action" href="#alumnosSection">Cargar observación <span aria-hidden="true">↓</span></a>
+    </section>
 
     <!-- Tabs: Alumnos / Observaciones de hoy -->
-    <ul class="nav nav-tabs mb-3" id="dashboardTabs">
+    <section class="workspace-panel">
+    <ul class="nav nav-tabs mb-4" id="dashboardTabs" aria-label="Actividad del aula">
       <li class="nav-item"><button class="nav-link active" data-tab="alumnos">Alumnos</button></li>
       <li class="nav-item"><button class="nav-link" data-tab="obsHoy">Observaciones de hoy</button></li>
     </ul>
 
     <!-- Alumnos tab -->
     <div id="tabAlumnos">
-      <div class="section-header">
-        <h6>Mis alumnos</h6>
+        <div class="section-header" id="alumnosSection">
+          <div><p class="eyebrow section-eyebrow mb-1">REGISTRO DIARIO</p><h2 class="page-title">Mis alumnos</h2><p class="page-lead">Escribí o grabá una observación. El indicador es opcional.</p></div>
         <div class="d-flex gap-1">
-          <button class="btn btn-sm btn-outline-primary" onclick="cargarVarios()">+ Varios</button>
-          <button class="btn btn-sm btn-primary" onclick="mostrarModalAlumno()">+ Agregar</button>
+          <button class="btn btn-sm btn-outline-primary" onclick="cargarVarios()">Agregar varios</button>
+          <button class="btn btn-sm btn-primary" onclick="mostrarModalAlumno()">Agregar alumno</button>
         </div>
       </div>
+      <label class="student-search mb-3" for="studentSearch">
+        <span aria-hidden="true">⌕</span>
+        <input type="search" id="studentSearch" class="form-control" placeholder="Buscar un alumno por nombre" autocomplete="off">
+        <span class="search-hint" id="studentCount" aria-live="polite"></span>
+      </label>
       <div id="alumnosContainer"><div class="text-center py-4 text-muted">Cargando...</div></div>
     </div>
 
     <!-- Observaciones hoy tab -->
     <div id="tabObsHoy" style="display:none">
-      <div class="section-header"><h6>Observaciones del día</h6></div>
+      <div class="section-header"><div><p class="eyebrow section-eyebrow mb-1">SEGUIMIENTO</p><h2 class="page-title">Observaciones del día</h2></div></div>
       <div id="obsHoyContainer"><div class="text-center py-4 text-muted">Cargando...</div></div>
     </div>
-  </div>
+    </section>
+    <div class="row g-3 mt-3 stats-row" aria-label="Resumen de actividad">
+      <div class="col-6 col-md-3"><div class="card p-2"><div class="fs-5 text-primary" id="statAlumnos">-</div><div class="small text-muted">Alumnos</div></div></div>
+      <div class="col-6 col-md-3"><div class="card p-2"><div class="fs-5 text-success" id="statObsHoy">-</div><div class="small text-muted">Hoy</div></div></div>
+      <div class="col-6 col-md-3"><div class="card p-2"><div class="fs-5" style="color:var(--accent)" id="statTotalObs">-</div><div class="small text-muted">Total</div></div></div>
+      <div class="col-6 col-md-3"><div class="card p-2"><div class="fs-5" style="color:var(--primary-light)" id="statInformes">-</div><div class="small text-muted">Informes</div></div></div>
+    </div>
+  </main>
 
   <!-- Modal: Agregar 1 alumno -->
   <div class="modal fade" id="modalAlumno" tabindex="-1">
@@ -108,10 +112,11 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/static/js/app.js?v=11"></script>
+  <script src="/static/js/app.js?v=20"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       cargarDashboard();
+      document.getElementById('studentSearch').addEventListener('input', filtrarAlumnos);
       document.querySelectorAll('#dashboardTabs .nav-link').forEach(tab => {
         tab.addEventListener('click', () => {
           document.querySelectorAll('#dashboardTabs .nav-link').forEach(t => t.classList.remove('active'));
@@ -124,6 +129,29 @@
     });
 
     let modalAlumno, modalVarios;
+
+    function filtrarAlumnos() {
+      const query = document.getElementById('studentSearch').value.trim().toLocaleLowerCase('es');
+      const cards = [...document.querySelectorAll('#alumnosContainer .alumno-item')];
+      let visibles = 0;
+      cards.forEach(card => {
+        const coincide = card.querySelector('.student-name').textContent.toLocaleLowerCase('es').includes(query);
+        card.hidden = !coincide;
+        if (coincide) visibles++;
+      });
+      const count = document.getElementById('studentCount');
+      count.textContent = query ? `${visibles} de ${cards.length}` : `${cards.length} ${cards.length === 1 ? 'alumno' : 'alumnos'}`;
+      let empty = document.getElementById('studentSearchEmpty');
+      if (query && !visibles && cards.length) {
+        if (!empty) {
+          empty = document.createElement('div');
+          empty.id = 'studentSearchEmpty';
+          empty.className = 'empty-state search-empty';
+          empty.innerHTML = '<span class="empty-state-icon" aria-hidden="true">⌕</span><strong>No encontramos ese nombre</strong><span>Probá con otra búsqueda.</span>';
+          document.getElementById('alumnosContainer').appendChild(empty);
+        }
+      } else if (empty) empty.remove();
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       modalAlumno = new bootstrap.Modal('#modalAlumno');

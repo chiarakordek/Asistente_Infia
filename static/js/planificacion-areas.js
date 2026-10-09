@@ -1,42 +1,13 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Infia - Áreas</title>
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/static/icons/iconoinfia.png">
-  <link rel="icon" type="image/png" href="/static/icons/iconoinfia.png">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=25">
-</head>
-<body>
-  {% set active_page = 'areas' %}{% include '_nav.html' %}
-
-  <div class="container-fluid px-3 py-3" style="max-width:800px">
-    <div class="section-header mb-3">
-      <div><h1 class="page-title">Mis áreas</h1><p class="page-lead">Organizá tus observaciones por área.</p></div>
-    </div>
-
-    <div class="card p-3 mb-3">
-      <div class="d-flex gap-2">
-        <input type="text" class="form-control form-control-sm" id="nuevaArea" placeholder="Nombre del área" onkeydown="if(event.key==='Enter')agregarArea()">
-        <button class="btn btn-sm btn-primary" onclick="agregarArea()">Agregar</button>
-      </div>
-    </div>
-
-    <div id="areasContainer"><div class="text-center py-4 text-muted">Cargando...</div></div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/static/js/app.js?v=20"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', cargarAreas);
+document.addEventListener('DOMContentLoaded', cargarAreas);
 
     async function cargarAreas() {
       try {
         const areas = await api('GET', '/api/areas');
         const c = document.getElementById('areasContainer');
+        const areaSelect = document.getElementById('actArea');
+        const areaSeleccionada = areaSelect.value;
+        areaSelect.replaceChildren(new Option('Seleccionar área', '', true, true), ...areas.map(a => new Option(a.nombre, a.nombre)));
+        if (areas.some(a => a.nombre === areaSeleccionada)) areaSelect.value = areaSeleccionada;
         if (!areas.length) {
           c.innerHTML = '<div class="text-center py-4 text-muted small">No hay áreas</div>';
           return;
@@ -113,6 +84,3 @@
         cargarAreas();
       } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
     }
-  </script>
-</body>
-</html>

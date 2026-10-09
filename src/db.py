@@ -82,6 +82,7 @@ def inicializar_bd():
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS mp_preapproval_id TEXT")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_solicitada_en TIMESTAMP")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS motivo_baja TEXT")
+        execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar_data TEXT")
 
         execute(conn, '''CREATE TABLE IF NOT EXISTS app_config (
             clave TEXT PRIMARY KEY,
@@ -175,6 +176,33 @@ def inicializar_bd():
             nombre TEXT NOT NULL
         )''')
 
+        execute(conn, '''CREATE TABLE IF NOT EXISTS salas_docente (
+            id_sala SERIAL PRIMARY KEY,
+            id_usuario INTEGER NOT NULL REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+            nombre TEXT NOT NULL,
+            sala TEXT NOT NULL,
+            turno TEXT NOT NULL,
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(id_usuario, nombre)
+        )''')
+        execute(conn, '''INSERT INTO salas_docente (id_usuario, nombre, sala, turno)
+                         SELECT u.id_usuario, u.sala || ' · ' || u.turno, u.sala, u.turno
+                         FROM usuarios u
+                         WHERE NOT EXISTS (
+                           SELECT 1 FROM salas_docente s WHERE s.id_usuario = u.id_usuario
+                         )''')
+        for tabla in ('alumnos', 'actividades', 'unidades', 'areas_usuario'):
+            execute(conn, f'ALTER TABLE {tabla} ADD COLUMN IF NOT EXISTS id_sala INTEGER REFERENCES salas_docente(id_sala)')
+            execute(conn, f'''UPDATE {tabla} item SET id_sala = sala.id_sala
+                              FROM salas_docente sala
+                              WHERE item.id_sala IS NULL AND item.id_usuario = sala.id_usuario
+                                AND sala.id_sala = (
+                                  SELECT MIN(s2.id_sala) FROM salas_docente s2
+                                  WHERE s2.id_usuario = sala.id_usuario
+                                )''')
+            execute(conn, f'ALTER TABLE {tabla} ALTER COLUMN id_sala SET NOT NULL')
+            execute(conn, f'CREATE INDEX IF NOT EXISTS idx_{tabla}_sala ON {tabla}(id_sala)')
+
         conn.commit()
         print("Base de datos PostgreSQL actualizada con éxito!")
     except Exception as e:
@@ -192,6 +220,13 @@ def crear_usuario(nombre, email, contraseña, sala, turno):
         uid = execute_return(conn,
             "INSERT INTO usuarios (nombre, email, contraseña, sala, turno, plan) VALUES (%s,%s,%s,%s,%s,'trial') RETURNING id_usuario",
             (nombre, email, contraseña, sala, turno))
+        nombre_sala = f'{sala} - {turno}'
+        id_sala = execute_return(conn,
+            'INSERT INTO salas_docente (id_usuario, nombre, sala, turno) VALUES (%s,%s,%s,%s) RETURNING id_sala',
+            (uid, nombre_sala, sala, turno))
+        for area in AREAS_DEFAULT:
+            execute(conn, 'INSERT INTO areas_usuario (id_usuario, id_sala, nombre) VALUES (%s,%s,%s)',
+                    (uid, id_sala, area))
         conn.commit()
         return uid
     except psycopg2.errors.UniqueViolation:
@@ -211,6 +246,68 @@ def obtener_usuario_por_id(id_usuario):
     conn = conectar()
     try:
         return fetch_one(conn, 'SELECT * FROM usuarios WHERE id_usuario = %s', (id_usuario,))
+    finally:
+        conn.close()
+
+def obtener_salas_docente(id_usuario):
+    conn = conectar()
+    try:
+        return fetch_all(conn, '''SELECT id_sala, nombre, sala, turno, fecha_creacion
+                                  FROM salas_docente WHERE id_usuario = %s
+                                  ORDER BY fecha_creacion, id_sala''', (id_usuario,))
+    finally:
+        conn.close()
+
+def obtener_sala_docente(id_sala, id_usuario):
+    conn = conectar()
+    try:
+        return fetch_one(conn, 'SELECT * FROM salas_docente WHERE id_sala = %s AND id_usuario = %s',
+                         (id_sala, id_usuario))
+    finally:
+        conn.close()
+
+def crear_sala_docente(id_usuario, nombre, sala, turno):
+    conn = conectar()
+    try:
+        id_sala = execute_return(conn,
+            'INSERT INTO salas_docente (id_usuario, nombre, sala, turno) VALUES (%s,%s,%s,%s) RETURNING id_sala',
+            (id_usuario, nombre, sala, turno))
+        for area in AREAS_DEFAULT:
+            execute(conn, 'INSERT INTO areas_usuario (id_usuario, id_sala, nombre) VALUES (%s,%s,%s)',
+                    (id_usuario, id_sala, area))
+        conn.commit()
+        return id_sala
+    finally:
+        conn.close()
+
+def actualizar_sala_docente(id_sala, id_usuario, nombre, sala, turno):
+    conn = conectar()
+    try:
+        execute(conn, '''UPDATE salas_docente SET nombre = %s, sala = %s, turno = %s
+                         WHERE id_sala = %s AND id_usuario = %s''',
+                (nombre, sala, turno, id_sala, id_usuario))
+        conn.commit()
+    finally:
+        conn.close()
+
+def eliminar_sala_docente(id_sala, id_usuario):
+    conn = conectar()
+    try:
+        total = fetch_one(conn, 'SELECT COUNT(*) AS cantidad FROM salas_docente WHERE id_usuario = %s',
+                          (id_usuario,))['cantidad']
+        contenido = fetch_one(conn, '''SELECT
+                                         (SELECT COUNT(*) FROM alumnos WHERE id_sala = %s) +
+                                         (SELECT COUNT(*) FROM actividades WHERE id_sala = %s) +
+                                         (SELECT COUNT(*) FROM unidades WHERE id_sala = %s) AS cantidad''',
+                              (id_sala, id_sala, id_sala))['cantidad']
+        if total <= 1 or contenido:
+            return False
+        execute(conn, 'DELETE FROM areas_usuario WHERE id_sala = %s AND id_usuario = %s', (id_sala, id_usuario))
+        execute(conn, 'DELETE FROM unidades WHERE id_sala = %s AND id_usuario = %s', (id_sala, id_usuario))
+        execute(conn, 'DELETE FROM actividades WHERE id_sala = %s AND id_usuario = %s', (id_sala, id_usuario))
+        execute(conn, 'DELETE FROM salas_docente WHERE id_sala = %s AND id_usuario = %s', (id_sala, id_usuario))
+        conn.commit()
+        return True
     finally:
         conn.close()
 
@@ -288,6 +385,15 @@ def actualizar_perfil(id_usuario, nombre, sala, turno):
     try:
         execute(conn, 'UPDATE usuarios SET nombre = %s, sala = %s, turno = %s WHERE id_usuario = %s',
                 (nombre, sala, turno, id_usuario))
+        conn.commit()
+    finally:
+        conn.close()
+
+def actualizar_avatar(id_usuario, avatar_data):
+    conn = conectar()
+    try:
+        execute(conn, 'UPDATE usuarios SET avatar_data = %s WHERE id_usuario = %s',
+                (avatar_data, id_usuario))
         conn.commit()
     finally:
         conn.close()
@@ -488,165 +594,173 @@ def enviar_comunicado(id_admin, texto):
 
 # ─── ALUMNOS ─────────────────────────────
 
-def registrar_alumno(id_usuario, nombre, apellido):
+def registrar_alumno(id_usuario, nombre, apellido, id_sala=None):
     conn = conectar()
     try:
         uid = execute_return(conn,
-            'INSERT INTO alumnos (id_usuario, nombre, apellido) VALUES (%s,%s,%s) RETURNING id_alumno',
-            (id_usuario, nombre, apellido))
+            'INSERT INTO alumnos (id_usuario, id_sala, nombre, apellido) VALUES (%s,%s,%s,%s) RETURNING id_alumno',
+            (id_usuario, id_sala, nombre, apellido))
         conn.commit()
         return uid
     finally:
         conn.close()
 
-def obtener_alumnos(id_usuario):
+def obtener_alumnos(id_usuario, id_sala=None):
     conn = conectar()
     try:
         return fetch_all(conn,
-            'SELECT id_alumno, nombre, apellido FROM alumnos WHERE id_usuario = %s ORDER BY apellido, nombre',
-            (id_usuario,))
+            'SELECT id_alumno, nombre, apellido FROM alumnos WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala) ORDER BY apellido, nombre',
+            (id_usuario, id_sala))
     finally:
         conn.close()
 
-def eliminar_alumno(id_alumno, id_usuario):
+def eliminar_alumno(id_alumno, id_usuario, id_sala=None):
     conn = conectar()
     try:
+        pertenece = fetch_one(conn, '''SELECT id_alumno FROM alumnos WHERE id_alumno = %s
+                                       AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)''',
+                              (id_alumno, id_usuario, id_sala))
+        if not pertenece:
+            return False
         execute(conn, 'DELETE FROM informes_finales WHERE id_alumno = %s', (id_alumno,))
         execute(conn, 'DELETE FROM observaciones WHERE id_alumno = %s', (id_alumno,))
-        execute(conn, 'DELETE FROM alumnos WHERE id_alumno = %s AND id_usuario = %s', (id_alumno, id_usuario))
+        execute(conn, 'DELETE FROM alumnos WHERE id_alumno = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)',
+                (id_alumno, id_usuario, id_sala))
         conn.commit()
+        return True
     finally:
         conn.close()
 
 # ─── ACTIVIDADES ─────────────────────────
 
-def crear_actividad(id_usuario, nombre, area, fecha=None, id_unidad=None):
+def crear_actividad(id_usuario, nombre, area, fecha=None, id_unidad=None, id_sala=None):
     conn = conectar()
     try:
         uid = execute_return(conn,
-            'INSERT INTO actividades (id_usuario, nombre, area, fecha, id_unidad) VALUES (%s,%s,%s,%s,%s) RETURNING id_actividad',
-            (id_usuario, nombre, area, fecha or hoy().isoformat(), id_unidad))
+            'INSERT INTO actividades (id_usuario, id_sala, nombre, area, fecha, id_unidad) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id_actividad',
+            (id_usuario, id_sala, nombre, area, fecha or hoy().isoformat(), id_unidad))
         conn.commit()
         return uid
     finally:
         conn.close()
 
-def obtener_actividades_dia(id_usuario, fecha=None):
+def obtener_actividades_dia(id_usuario, fecha=None, id_sala=None):
     conn = conectar()
     try:
         if fecha:
             rows = fetch_all(conn,
-                'SELECT a.*, u.titulo as unidad_titulo FROM actividades a LEFT JOIN unidades u ON a.id_unidad = u.id_unidad WHERE a.id_usuario = %s AND a.fecha = %s ORDER BY a.area, a.nombre',
-                (id_usuario, fecha))
+                'SELECT a.*, u.titulo as unidad_titulo FROM actividades a LEFT JOIN unidades u ON a.id_unidad = u.id_unidad WHERE a.id_usuario = %s AND a.id_sala = COALESCE(%s, a.id_sala) AND a.fecha = %s ORDER BY a.area, a.nombre',
+                (id_usuario, id_sala, fecha))
         else:
             rows = fetch_all(conn,
-                'SELECT a.*, u.titulo as unidad_titulo FROM actividades a LEFT JOIN unidades u ON a.id_unidad = u.id_unidad WHERE a.id_usuario = %s ORDER BY a.area, a.nombre',
-                (id_usuario,))
+                'SELECT a.*, u.titulo as unidad_titulo FROM actividades a LEFT JOIN unidades u ON a.id_unidad = u.id_unidad WHERE a.id_usuario = %s AND a.id_sala = COALESCE(%s, a.id_sala) ORDER BY a.area, a.nombre',
+                (id_usuario, id_sala))
         return rows
     finally:
         conn.close()
 
-def actualizar_actividad(id_actividad, id_usuario, nombre=None, area=None):
+def actualizar_actividad(id_actividad, id_usuario, nombre=None, area=None, id_sala=None):
     conn = conectar()
     try:
         if nombre and area:
-            execute(conn, 'UPDATE actividades SET nombre = %s, area = %s WHERE id_actividad = %s AND id_usuario = %s',
-                    (nombre, area, id_actividad, id_usuario))
+            execute(conn, 'UPDATE actividades SET nombre = %s, area = %s WHERE id_actividad = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)',
+                    (nombre, area, id_actividad, id_usuario, id_sala))
         elif nombre:
-            execute(conn, 'UPDATE actividades SET nombre = %s WHERE id_actividad = %s AND id_usuario = %s',
-                    (nombre, id_actividad, id_usuario))
+            execute(conn, 'UPDATE actividades SET nombre = %s WHERE id_actividad = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)',
+                    (nombre, id_actividad, id_usuario, id_sala))
         elif area:
-            execute(conn, 'UPDATE actividades SET area = %s WHERE id_actividad = %s AND id_usuario = %s',
-                    (area, id_actividad, id_usuario))
+            execute(conn, 'UPDATE actividades SET area = %s WHERE id_actividad = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)',
+                    (area, id_actividad, id_usuario, id_sala))
         conn.commit()
     finally:
         conn.close()
 
-def crear_actividades_multi(id_usuario, actividades, fecha=None, id_unidad=None):
+def crear_actividades_multi(id_usuario, actividades, fecha=None, id_unidad=None, id_sala=None):
     conn = conectar()
     ids = []
     try:
         f = fecha or hoy().isoformat()
         for act in actividades:
             uid = execute_return(conn,
-                'INSERT INTO actividades (id_usuario, nombre, area, fecha, id_unidad) VALUES (%s,%s,%s,%s,%s) RETURNING id_actividad',
-                (id_usuario, act['nombre'], act.get('area', 'Identidad y Convivencia'), f, id_unidad))
+                'INSERT INTO actividades (id_usuario, id_sala, nombre, area, fecha, id_unidad) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id_actividad',
+                (id_usuario, id_sala, act['nombre'], act.get('area', 'Identidad y Convivencia'), f, id_unidad))
             ids.append(uid)
         conn.commit()
         return ids
     finally:
         conn.close()
 
-def eliminar_actividad(id_actividad, id_usuario):
+def eliminar_actividad(id_actividad, id_usuario, id_sala=None):
     conn = conectar()
     try:
-        execute(conn, 'DELETE FROM actividades WHERE id_actividad = %s AND id_usuario = %s', (id_actividad, id_usuario))
+        execute(conn, 'DELETE FROM actividades WHERE id_actividad = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)',
+                (id_actividad, id_usuario, id_sala))
         conn.commit()
     finally:
         conn.close()
 
 # ─── UNIDADES DIDÁCTICAS ──────────────────
 
-def crear_unidad(id_usuario, titulo, contenido, ruta_archivo=None):
+def crear_unidad(id_usuario, titulo, contenido, ruta_archivo=None, id_sala=None):
     conn = conectar()
     try:
         uid = execute_return(conn,
-            'INSERT INTO unidades (id_usuario, titulo, contenido, ruta_archivo) VALUES (%s,%s,%s,%s) RETURNING id_unidad',
-            (id_usuario, titulo, contenido, ruta_archivo))
+            'INSERT INTO unidades (id_usuario, id_sala, titulo, contenido, ruta_archivo) VALUES (%s,%s,%s,%s,%s) RETURNING id_unidad',
+            (id_usuario, id_sala, titulo, contenido, ruta_archivo))
         conn.commit()
         return uid
     finally:
         conn.close()
 
-def obtener_unidades(id_usuario):
+def obtener_unidades(id_usuario, id_sala=None):
     conn = conectar()
     try:
         return fetch_all(conn,
-            'SELECT * FROM unidades WHERE id_usuario = %s ORDER BY fecha_creacion DESC',
-            (id_usuario,))
+            'SELECT * FROM unidades WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala) ORDER BY fecha_creacion DESC',
+            (id_usuario, id_sala))
     finally:
         conn.close()
 
-def obtener_unidad(id_unidad, id_usuario):
+def obtener_unidad(id_unidad, id_usuario, id_sala=None):
     conn = conectar()
     try:
         return fetch_one(conn,
-            'SELECT * FROM unidades WHERE id_unidad = %s AND id_usuario = %s',
-            (id_unidad, id_usuario))
+            'SELECT * FROM unidades WHERE id_unidad = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)',
+            (id_unidad, id_usuario, id_sala))
     finally:
         conn.close()
 
-def actualizar_unidad(id_unidad, id_usuario, titulo, contenido):
+def actualizar_unidad(id_unidad, id_usuario, titulo, contenido, id_sala=None):
     conn = conectar()
     try:
         execute(conn,
-            'UPDATE unidades SET titulo = %s, contenido = %s WHERE id_unidad = %s AND id_usuario = %s',
-            (titulo, contenido, id_unidad, id_usuario))
+            'UPDATE unidades SET titulo = %s, contenido = %s WHERE id_unidad = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)',
+            (titulo, contenido, id_unidad, id_usuario, id_sala))
         conn.commit()
     finally:
         conn.close()
 
-def eliminar_unidad(id_unidad, id_usuario):
+def eliminar_unidad(id_unidad, id_usuario, id_sala=None):
     conn = conectar()
     try:
-        execute(conn, 'DELETE FROM unidades WHERE id_unidad = %s AND id_usuario = %s',
-                (id_unidad, id_usuario))
+        execute(conn, 'DELETE FROM unidades WHERE id_unidad = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)',
+                (id_unidad, id_usuario, id_sala))
         conn.commit()
     finally:
         conn.close()
 
 # ─── STATS ────────────────────────────────
 
-def obtener_stats(id_usuario):
+def obtener_stats(id_usuario, id_sala=None):
     conn = conectar()
     try:
         r = fetch_one(conn, """
             SELECT
-              (SELECT COUNT(*) FROM alumnos WHERE id_usuario = %s) AS total_alumnos,
-              (SELECT COUNT(*) FROM observaciones o JOIN alumnos al ON o.id_alumno = al.id_alumno WHERE al.id_usuario = %s AND date(o.fecha) = CURRENT_DATE) AS obs_hoy,
-              (SELECT COUNT(*) FROM observaciones o JOIN alumnos al ON o.id_alumno = al.id_alumno WHERE al.id_usuario = %s) AS total_obs,
-              (SELECT COUNT(*) FROM informes_finales i JOIN alumnos al ON i.id_alumno = al.id_alumno WHERE al.id_usuario = %s) AS informes
-        """, (id_usuario, id_usuario, id_usuario, id_usuario))
+              (SELECT COUNT(*) FROM alumnos WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala)) AS total_alumnos,
+              (SELECT COUNT(*) FROM observaciones o JOIN alumnos al ON o.id_alumno = al.id_alumno WHERE al.id_usuario = %s AND al.id_sala = COALESCE(%s, al.id_sala) AND date(o.fecha) = CURRENT_DATE) AS obs_hoy,
+              (SELECT COUNT(*) FROM observaciones o JOIN alumnos al ON o.id_alumno = al.id_alumno WHERE al.id_usuario = %s AND al.id_sala = COALESCE(%s, al.id_sala)) AS total_obs,
+              (SELECT COUNT(*) FROM informes_finales i JOIN alumnos al ON i.id_alumno = al.id_alumno WHERE al.id_usuario = %s AND al.id_sala = COALESCE(%s, al.id_sala)) AS informes
+        """, (id_usuario, id_sala, id_usuario, id_sala, id_usuario, id_sala, id_usuario, id_sala))
         return {
             'total_alumnos': r['total_alumnos'],
             'observaciones_hoy': r['obs_hoy'],
@@ -661,77 +775,79 @@ def obtener_stats(id_usuario):
 AREAS_DEFAULT = ['Identidad y Convivencia', 'Lenguaje y Literatura',
                  'Matemáticas', 'Ciencias Sociales, Ciencias Naturales y Tecnología']
 
-def _asegurar_areas_default(conn, id_usuario):
-    count = fetch_one(conn, 'SELECT COUNT(*) as c FROM areas_usuario WHERE id_usuario = %s', (id_usuario,))['c']
+def _asegurar_areas_default(conn, id_usuario, id_sala=None):
+    count = fetch_one(conn, 'SELECT COUNT(*) AS c FROM areas_usuario WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala)', (id_usuario, id_sala))['c']
     if count == 0:
         for nombre in AREAS_DEFAULT:
-            execute(conn, 'INSERT INTO areas_usuario (id_usuario, nombre) VALUES (%s, %s)', (id_usuario, nombre))
+            execute(conn, 'INSERT INTO areas_usuario (id_usuario, id_sala, nombre) VALUES (%s,%s,%s)', (id_usuario, id_sala, nombre))
         conn.commit()
     else:
-        existing = {r['nombre'] for r in fetch_all(conn, 'SELECT nombre FROM areas_usuario WHERE id_usuario = %s', (id_usuario,))}
-        activity_areas = fetch_all(conn,
-            "SELECT DISTINCT area FROM actividades WHERE id_usuario = %s AND area != '' AND area != 'Sin área'",
-            (id_usuario,))
+        existing = {r['nombre'] for r in fetch_all(conn, 'SELECT nombre FROM areas_usuario WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala)', (id_usuario, id_sala))}
+        activity_areas = fetch_all(conn, "SELECT DISTINCT area FROM actividades WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala) AND area != '' AND area != 'Sin área'", (id_usuario, id_sala))
         added = False
-        for r in activity_areas:
-            if r['area'] not in existing:
-                execute(conn, 'INSERT INTO areas_usuario (id_usuario, nombre) VALUES (%s, %s)', (id_usuario, r['area']))
+        for row in activity_areas:
+            if row['area'] not in existing:
+                execute(conn, 'INSERT INTO areas_usuario (id_usuario, id_sala, nombre) VALUES (%s,%s,%s)', (id_usuario, id_sala, row['area']))
                 added = True
         if added:
             conn.commit()
 
-def obtener_areas_usuario(id_usuario):
+def obtener_areas_usuario(id_usuario, id_sala=None):
     conn = conectar()
     try:
-        _asegurar_areas_default(conn, id_usuario)
-        rows = fetch_all(conn, 'SELECT id_area, nombre FROM areas_usuario WHERE id_usuario = %s ORDER BY nombre', (id_usuario,))
-        return [{'id': r['id_area'], 'nombre': r['nombre']} for r in rows]
+        _asegurar_areas_default(conn, id_usuario, id_sala)
+        rows = fetch_all(conn, 'SELECT id_area, nombre FROM areas_usuario WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala) ORDER BY nombre', (id_usuario, id_sala))
+        return [{'id': row['id_area'], 'nombre': row['nombre']} for row in rows]
     finally:
         conn.close()
 
-def crear_area(id_usuario, nombre):
+def crear_area(id_usuario, nombre, id_sala=None):
     conn = conectar()
     try:
-        execute(conn, 'INSERT INTO areas_usuario (id_usuario, nombre) VALUES (%s, %s)', (id_usuario, nombre))
+        execute(conn, 'INSERT INTO areas_usuario (id_usuario, id_sala, nombre) VALUES (%s,%s,%s)', (id_usuario, id_sala, nombre))
         conn.commit()
     finally:
         conn.close()
 
-def renombrar_area(id_usuario, area_id, nuevo_nombre):
+def renombrar_area(id_usuario, area_id, nuevo_nombre, id_sala=None):
     conn = conectar()
     try:
-        old = fetch_one(conn, 'SELECT nombre FROM areas_usuario WHERE id_area = %s AND id_usuario = %s', (area_id, id_usuario))
+        old = fetch_one(conn, 'SELECT nombre FROM areas_usuario WHERE id_area = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)', (area_id, id_usuario, id_sala))
         if old:
-            execute(conn, 'UPDATE areas_usuario SET nombre = %s WHERE id_area = %s AND id_usuario = %s',
-                    (nuevo_nombre, area_id, id_usuario))
-            execute(conn, 'UPDATE actividades SET area = %s WHERE id_usuario = %s AND area = %s',
-                    (nuevo_nombre, id_usuario, old['nombre']))
+            execute(conn, 'UPDATE areas_usuario SET nombre = %s WHERE id_area = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)', (nuevo_nombre, area_id, id_usuario, id_sala))
+            execute(conn, 'UPDATE actividades SET area = %s WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala) AND area = %s', (nuevo_nombre, id_usuario, id_sala, old['nombre']))
             conn.commit()
     finally:
         conn.close()
 
-def eliminar_area(id_usuario, area_id):
+def eliminar_area(id_usuario, area_id, id_sala=None):
     conn = conectar()
     try:
-        area = fetch_one(conn, 'SELECT nombre FROM areas_usuario WHERE id_area = %s AND id_usuario = %s', (area_id, id_usuario))
+        area = fetch_one(conn, 'SELECT nombre FROM areas_usuario WHERE id_area = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)', (area_id, id_usuario, id_sala))
         if area:
-            execute(conn, 'DELETE FROM areas_usuario WHERE id_area = %s AND id_usuario = %s', (area_id, id_usuario))
-            execute(conn, "UPDATE actividades SET area = 'Sin área' WHERE id_usuario = %s AND area = %s",
-                    (id_usuario, area['nombre']))
+            execute(conn, 'DELETE FROM areas_usuario WHERE id_area = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)', (area_id, id_usuario, id_sala))
+            execute(conn, "UPDATE actividades SET area = 'Sin área' WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala) AND area = %s", (id_usuario, id_sala, area['nombre']))
             conn.commit()
             return True
         return False
-    except Exception as e:
+    except Exception:
         conn.rollback()
-        raise e
+        raise
     finally:
         conn.close()
-
-# ─── OBSERVACIONES ───────────────────────
-
-def guardar_observacion(id_alumno, id_actividad, nota_cruda, tipo='texto', ruta_audio=None):
+def guardar_observacion(id_alumno, id_actividad, nota_cruda, tipo='texto', ruta_audio=None, id_usuario=None, id_sala=None):
     conn = conectar()
     try:
+        if id_usuario is not None:
+            alumno = fetch_one(conn, 'SELECT id_alumno FROM alumnos WHERE id_alumno = %s AND id_usuario = %s AND id_sala = %s',
+                               (id_alumno, id_usuario, id_sala))
+            if not alumno:
+                raise ValueError('El alumno no pertenece a la sala activa.')
+            if id_actividad is not None:
+                actividad = fetch_one(conn, 'SELECT id_actividad FROM actividades WHERE id_actividad = %s AND id_usuario = %s AND id_sala = %s',
+                                      (id_actividad, id_usuario, id_sala))
+                if not actividad:
+                    raise ValueError('El indicador no pertenece a la sala activa.')
         execute(conn,
             'INSERT INTO observaciones (id_alumno, id_actividad, nota_cruda, tipo, ruta_audio) VALUES (%s,%s,%s,%s,%s)',
             (id_alumno, id_actividad, nota_cruda, tipo, ruta_audio))
@@ -739,24 +855,39 @@ def guardar_observacion(id_alumno, id_actividad, nota_cruda, tipo='texto', ruta_
     finally:
         conn.close()
 
-def eliminar_observacion(id_observacion):
+def eliminar_observacion(id_observacion, id_usuario=None, id_sala=None):
     conn = conectar()
     try:
-        ruta = fetch_one(conn, 'SELECT ruta_audio FROM observaciones WHERE id_observacion = %s', (id_observacion,))
+        if id_usuario is None:
+            ruta = fetch_one(conn, 'SELECT ruta_audio FROM observaciones WHERE id_observacion = %s', (id_observacion,))
+        else:
+            ruta = fetch_one(conn, '''SELECT o.ruta_audio FROM observaciones o JOIN alumnos al ON al.id_alumno = o.id_alumno
+                                      WHERE o.id_observacion = %s AND al.id_usuario = %s AND al.id_sala = %s''',
+                             (id_observacion, id_usuario, id_sala))
         if ruta:
-            execute(conn, 'DELETE FROM observaciones WHERE id_observacion = %s', (id_observacion,))
+            if id_usuario is None:
+                execute(conn, 'DELETE FROM observaciones WHERE id_observacion = %s', (id_observacion,))
+            else:
+                execute(conn, '''DELETE FROM observaciones WHERE id_observacion = %s AND id_alumno IN
+                                 (SELECT id_alumno FROM alumnos WHERE id_usuario = %s AND id_sala = %s)''',
+                        (id_observacion, id_usuario, id_sala))
             conn.commit()
             return ruta['ruta_audio']
         return None
     finally:
         conn.close()
 
-def eliminar_observaciones_multi(ids):
+def eliminar_observaciones_multi(ids, id_usuario=None, id_sala=None):
     conn = conectar()
     try:
         placeholders = ','.join(['%s'] * len(ids))
-        rows = fetch_all(conn, f'SELECT ruta_audio FROM observaciones WHERE id_observacion IN ({placeholders})', ids)
-        execute(conn, f'DELETE FROM observaciones WHERE id_observacion IN ({placeholders})', ids)
+        scope = ''
+        params = list(ids)
+        if id_usuario is not None:
+            scope = ' AND id_alumno IN (SELECT id_alumno FROM alumnos WHERE id_usuario = %s AND id_sala = %s)'
+            params.extend([id_usuario, id_sala])
+        rows = fetch_all(conn, f'SELECT ruta_audio FROM observaciones WHERE id_observacion IN ({placeholders}){scope}', params)
+        execute(conn, f'DELETE FROM observaciones WHERE id_observacion IN ({placeholders}){scope}', params)
         conn.commit()
         return [r['ruta_audio'] for r in rows if r['ruta_audio']]
     finally:
@@ -774,33 +905,30 @@ def obtener_observaciones_alumno(id_alumno):
     finally:
         conn.close()
 
-def obtener_todas_observaciones_dia(id_usuario, fecha=None):
+def obtener_todas_observaciones_dia(id_usuario, fecha=None, id_sala=None):
     conn = conectar()
     try:
         if fecha:
-            rows = fetch_all(conn,
-                '''SELECT o.*, al.nombre as al_nombre, al.apellido as al_apellido,
-                          a.nombre as act_nombre, a.area
-                   FROM observaciones o
-                   JOIN alumnos al ON o.id_alumno = al.id_alumno
-                   LEFT JOIN actividades a ON o.id_actividad = a.id_actividad
-                   WHERE al.id_usuario = %s AND date(o.fecha) = %s
-                   ORDER BY al.apellido, al.nombre, o.fecha''', (id_usuario, fecha))
+            rows = fetch_all(conn, '''SELECT o.*, al.nombre AS al_nombre, al.apellido AS al_apellido,
+                                      a.nombre AS act_nombre, a.area
+                               FROM observaciones o
+                               JOIN alumnos al ON o.id_alumno = al.id_alumno
+                               LEFT JOIN actividades a ON o.id_actividad = a.id_actividad
+                               WHERE al.id_usuario = %s AND al.id_sala = COALESCE(%s, al.id_sala)
+                                 AND date(o.fecha) = %s
+                               ORDER BY al.apellido, al.nombre, o.fecha''', (id_usuario, id_sala, fecha))
         else:
-            rows = fetch_all(conn,
-                '''SELECT o.*, al.nombre as al_nombre, al.apellido as al_apellido,
-                          a.nombre as act_nombre, a.area
-                   FROM observaciones o
-                   JOIN alumnos al ON o.id_alumno = al.id_alumno
-                   LEFT JOIN actividades a ON o.id_actividad = a.id_actividad
-                   WHERE al.id_usuario = %s AND date(o.fecha) = CURRENT_DATE
-                   ORDER BY al.apellido, al.nombre, o.fecha''', (id_usuario,))
+            rows = fetch_all(conn, '''SELECT o.*, al.nombre AS al_nombre, al.apellido AS al_apellido,
+                                      a.nombre AS act_nombre, a.area
+                               FROM observaciones o
+                               JOIN alumnos al ON o.id_alumno = al.id_alumno
+                               LEFT JOIN actividades a ON o.id_actividad = a.id_actividad
+                               WHERE al.id_usuario = %s AND al.id_sala = COALESCE(%s, al.id_sala)
+                                 AND date(o.fecha) = CURRENT_DATE
+                               ORDER BY al.apellido, al.nombre, o.fecha''', (id_usuario, id_sala))
         return rows
     finally:
         conn.close()
-
-# ─── INFORMES ─────────────────────────────
-
 def guardar_informe(id_alumno, etapa, contenido):
     conn = conectar()
     try:

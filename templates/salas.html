@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Infia - Mis salas</title>
+  <link rel="manifest" href="/manifest.json"><link rel="icon" type="image/png" href="/static/icons/iconoinfia.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css?v=25">
+</head>
+<body>
+  {% set active_page = 'salas' %}{% include '_nav.html' %}
+  <main class="container app-page rooms-page py-4 py-lg-5">
+    <header class="rooms-hero mb-4"><div><p class="eyebrow mb-2">ORGANIZÁ TU TRABAJO</p><h1 class="page-title mb-2">Mis salas</h1><p class="page-lead mb-0">Cada sala tiene sus propios alumnos, observaciones, indicadores e informes.</p></div><button class="btn btn-primary" type="button" onclick="mostrarFormularioSala()">+ Agregar una sala</button></header>
+    <div id="roomsError" class="alert alert-danger d-none"></div>
+    <section id="roomsGrid" class="rooms-grid" aria-live="polite"></section>
+  </main>
+  <div class="modal fade" id="roomModal" tabindex="-1" aria-labelledby="roomModalTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form id="roomForm"><div class="modal-header"><div><p class="eyebrow mb-1">TU ESPACIO DE TRABAJO</p><h2 class="modal-title fs-5" id="roomModalTitle">Agregar sala</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div><div class="modal-body"><input type="hidden" id="roomId"><div class="mb-3"><label for="roomName" class="form-label">Nombre para identificarla</label><input id="roomName" class="form-control" maxlength="80" placeholder="Por ejemplo: Sala Roja" required><div class="form-text">Este nombre aparece en el selector de salas.</div></div><div class="row g-3"><div class="col-sm-7"><label for="roomClass" class="form-label">Sala / edad</label><select id="roomClass" class="form-select" required>{% for anio in [3,4,5] %}{% for letra in ['A','B','C','D'] %}<option>{{ anio }} Años {{ letra }}</option>{% endfor %}{% endfor %}</select></div><div class="col-sm-5"><label for="roomShift" class="form-label">Turno</label><select id="roomShift" class="form-select"><option>Mañana</option><option>Tarde</option></select></div></div><div id="roomFormError" class="small text-danger mt-3 d-none"></div></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" id="saveRoomButton">Guardar sala</button></div></form></div></div></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script src="/static/js/app.js?v=20"></script>
+  <script>
+    const roomModal = new bootstrap.Modal(document.getElementById('roomModal'));
+    async function cargarSalas() {
+      const grid = document.getElementById('roomsGrid');
+      try {
+        const rooms = await api('GET', '/api/salas');
+        grid.innerHTML = rooms.map(room => `<article class="room-card ${room.activa ? 'room-card-active' : ''}"><div class="room-card-top"><span class="room-symbol">${room.activa ? '✓' : '✦'}</span>${room.activa ? '<span class="room-active-badge">En uso</span>' : ''}</div><h2>${escapeHtml(room.nombre)}</h2><p>${escapeHtml(room.sala)} <span>·</span> Turno ${escapeHtml(room.turno)}</p><div class="room-card-actions">${room.activa ? '<button type="button" class="btn btn-primary" disabled>Sala actual</button>' : `<button type="button" class="btn btn-primary" onclick="cambiarSala('${room.id_sala}')">Entrar a esta sala</button>`}<button type="button" class="btn btn-light" onclick="editarSala('${room.id_sala}')">Editar</button>${rooms.length > 1 ? `<button type="button" class="btn btn-link text-danger" onclick="borrarSala('${room.id_sala}')">Eliminar</button>` : ''}</div></article>`).join('') || '<div class="rooms-empty"><strong>Todavía no tenés salas</strong><p>Agregá una para organizar tus alumnos.</p></div>';
+      } catch (e) { document.getElementById('roomsError').textContent = e.message; document.getElementById('roomsError').classList.remove('d-none'); }
+    }
+    function escapeHtml(value) { const el = document.createElement('span'); el.textContent = value || ''; return el.innerHTML; }
+    function mostrarFormularioSala(room) {
+      document.getElementById('roomForm').reset(); document.getElementById('roomId').value = room?.id_sala || '';
+      document.getElementById('roomName').value = room?.nombre || '';
+      document.getElementById('roomClass').value = room?.sala || '3 Años A'; document.getElementById('roomShift').value = room?.turno || 'Mañana';
+      document.getElementById('roomModalTitle').textContent = room ? 'Editar sala' : 'Agregar sala';
+      document.getElementById('roomFormError').classList.add('d-none'); roomModal.show();
+    }
+    async function editarSala(id) { const rooms = await api('GET', '/api/salas'); mostrarFormularioSala(rooms.find(r => String(r.id_sala) === String(id))); }
+    async function borrarSala(id) { if (!confirm('¿Eliminar esta sala vacía? Esta acción no se puede deshacer.')) return; try { await api('DELETE', `/api/salas/${id}`); mostrarToast('Sala eliminada'); await cargarSalas(); } catch(e) { mostrarToast(e.message, 'danger'); } }
+    document.getElementById('roomForm').addEventListener('submit', async event => {
+      event.preventDefault(); const id = document.getElementById('roomId').value; const button = document.getElementById('saveRoomButton'); button.disabled = true;
+      const body = { nombre: document.getElementById('roomName').value.trim(), sala: document.getElementById('roomClass').value, turno: document.getElementById('roomShift').value };
+      try { const saved = await api(id ? 'PUT' : 'POST', id ? `/api/salas/${id}` : '/api/salas', body); const selector = document.getElementById('navRoomSelect'); if (selector) { let option = [...selector.options].find(item => item.value === String(id || saved.id_sala)); if (!option && saved.id_sala) { option = new Option(body.nombre, saved.id_sala); selector.add(option); } else if (option) option.textContent = body.nombre; } roomModal.hide(); mostrarToast(id ? 'Sala actualizada' : 'Sala creada'); await cargarSalas(); }
+      catch(e) { const el = document.getElementById('roomFormError'); el.textContent = e.message; el.classList.remove('d-none'); }
+      finally { button.disabled = false; }
+    });
+    cargarSalas();
+  </script>
+</body>
+</html>

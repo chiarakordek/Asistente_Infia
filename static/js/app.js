@@ -1,4 +1,29 @@
 // ─── TOAST ───────────────────────────────
+function aplicarTamanoTexto() {
+  const tamano = localStorage.getItem('infia-tamano-texto') || 'normal';
+  if (tamano === 'grande') {
+    document.body.classList.add('texto-grande');
+  }
+  document.querySelectorAll('[data-texto]').forEach(btn => {
+    const activo = btn.dataset.texto === tamano;
+    btn.classList.toggle('active', activo);
+    btn.setAttribute('aria-pressed', String(activo));
+  });
+}
+
+function cambiarTamanoTexto(tamano) {
+  localStorage.setItem('infia-tamano-texto', tamano);
+  document.body.classList.toggle('texto-grande', tamano === 'grande');
+  document.querySelectorAll('[data-texto]').forEach(btn => {
+    const activo = btn.dataset.texto === tamano;
+    btn.classList.toggle('active', activo);
+    btn.setAttribute('aria-pressed', String(activo));
+  });
+  mostrarToast(tamano === 'grande' ? 'Texto grande activado' : 'Texto normal activado');
+}
+
+document.addEventListener('DOMContentLoaded', aplicarTamanoTexto);
+
 function mostrarToast(msg, tipo) {
   const c = document.querySelector('.toast-container') || (() => {
     const d = document.createElement('div');
@@ -8,8 +33,11 @@ function mostrarToast(msg, tipo) {
   })();
   const t = document.createElement('div');
   t.className = `toast align-items-center text-bg-${tipo || 'success'} border-0 show`;
+  t.setAttribute('role', 'alert');
+  t.setAttribute('aria-live', 'assertive');
   t.role = 'alert';
-  t.innerHTML = `<div class="d-flex"><div class="toast-body small fw-medium">${msg}</div><button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+  t.innerHTML = '<div class="d-flex"><div class="toast-body small fw-medium"></div><button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+  t.querySelector('.toast-body').textContent = msg;
   c.appendChild(t);
   const bs = new bootstrap.Toast(t, { delay: 2500 });
   bs.show();
@@ -28,6 +56,7 @@ async function api(method, url, body) {
   const r = await fetch(url, opts);
   if (r.status === 401) { window.location = '/login'; return; }
   if (r.status === 402) { window.location = '/suscripcion'; throw new Error('Tu suscripción venció'); }
+  if (r.status === 423) { window.location = '/config'; throw new Error('Tu cuenta está suspendida'); }
   if (!r.ok) {
     const e = await r.json().catch(() => ({}));
     throw new Error(e.error || 'Error de red');
@@ -138,6 +167,8 @@ async function cargarAlumnos() {
   try {
     const alumnos = await api('GET', '/api/alumnos');
     if (!alumnos.length) {
+      const count = document.getElementById('studentCount');
+      if (count) count.textContent = '0 alumnos';
       c.innerHTML = `<div class="text-center py-5 text-muted">
         <p class="mb-2 fs-4">👩‍🏫</p>
         <p class="small">Todavía no cargaste alumnos. Usá el formulario de arriba para agregar.</p>
@@ -151,28 +182,31 @@ async function cargarAlumnos() {
         <button class="btn btn-sm btn-danger ms-auto" onclick="eliminarSeleccionados()">Eliminar seleccionados</button>
       </div>
     ` + alumnos.map(a => `
-      <div class="alumno-item" data-id="${a.id_alumno}">
-        <div class="alumno-top">
-          <input type="checkbox" class="form-check-input alumno-check" data-id="${a.id_alumno}" onchange="actualizarBulkBar()">
-          <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none">${a.apellido}, ${a.nombre}</a>
-            <div class="d-flex gap-1">
-            <button class="btn btn-sm btn-outline-success btn-record" data-alumno="${a.id_alumno}" onclick="toggleRecord(this)" title="Grabar audio">🎤</button>
-            </div>
-        </div>
-        <div class="alumno-bottom">
-          <div class="dropdown actividad-dropdown flex-grow-1" data-alumno="${a.id_alumno}">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle text-truncate w-100" type="button" data-bs-toggle="dropdown">
-              <span class="actividad-label">Indicador</span>
-            </button>
+       <div class="alumno-item" data-id="${a.id_alumno}">
+         <div class="alumno-top">
+           <input type="checkbox" class="form-check-input alumno-check" data-id="${a.id_alumno}" onchange="actualizarBulkBar()">
+           <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none"><span class="student-avatar" aria-hidden="true">${(a.nombre || '?').charAt(0)}${(a.apellido || '?').charAt(0)}</span><span class="student-name">${a.apellido}, ${a.nombre}</span><span class="student-open" aria-hidden="true">↗</span></a>
+         </div>
+         <div class="alumno-observation">
+           <div class="dropdown actividad-dropdown flex-grow-1" data-alumno="${a.id_alumno}">
+             <button class="btn btn-sm btn-outline-secondary dropdown-toggle text-truncate w-100" type="button" data-bs-toggle="dropdown">
+               <span class="actividad-label">Elegir indicador (opcional)</span>
+             </button>
             <ul class="dropdown-menu w-100 dropdown-menu-actividades" style="max-height:40vh;overflow-y:auto">
               <li><a class="dropdown-item" href="#" data-value="">— Sin indicador —</a></li>
               ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
-            </ul>
-          </div>
-          <button class="btn btn-sm btn-primary btn-save" onclick="guardarObs(${a.id_alumno}, this)" title="Guardar">💾</button>
-        </div>
+             </ul>
+           </div>
+           <textarea class="form-control obs-input" rows="2" maxlength="2000" placeholder="¿Qué observaste hoy?"></textarea>
+           <div class="observation-actions">
+             <button class="btn btn-primary btn-save" onclick="guardarObs(${a.id_alumno}, this)">Guardar observación</button>
+             <button class="btn btn-outline-success btn-record" data-alumno="${a.id_alumno}" aria-label="Grabar observación de ${a.apellido}, ${a.nombre}" aria-pressed="false" onclick="toggleRecord(this)">🎤 Grabar audio</button>
+             <span class="recording-status" aria-live="off"></span>
+           </div>
+         </div>
       </div>
     `).join('');
+    if (typeof filtrarAlumnos === 'function') filtrarAlumnos();
     // Attach dropdown item click handlers
     document.querySelectorAll('.actividad-dropdown .dropdown-item').forEach(el => {
       el.addEventListener('click', e => {
@@ -181,7 +215,7 @@ async function cargarAlumnos() {
         const btn = dd.querySelector('.dropdown-toggle');
         const label = dd.querySelector('.actividad-label');
         const value = el.dataset.value;
-        const text = value ? el.textContent : 'Seleccionar indicador';
+         const text = value ? el.textContent : 'Elegir indicador (opcional)';
         dd.dataset.selected = value;
         label.textContent = text;
         btn.classList.toggle('btn-outline-primary', !!value);
@@ -202,26 +236,36 @@ async function cargarActividadesSelect() {
 async function guardarObs(idAlumno, btn) {
   const dd = document.querySelector(`.actividad-dropdown[data-alumno="${idAlumno}"]`);
   const value = dd ? dd.dataset.selected : '';
-  if (!value) {
-      mostrarToast('Seleccioná un indicador primero', 'warning');
+  const item = btn.closest('.alumno-item');
+  const input = item ? item.querySelector('.obs-input') : null;
+  const nota = input ? input.value.trim() : '';
+  if (!nota) {
+      mostrarToast('Escribí primero qué observaste', 'warning');
+      if (input) input.focus();
     return;
   }
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-  const label = dd.querySelector('.actividad-label');
+  btn.setAttribute('aria-busy', 'true');
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Guardando…';
   try {
     await api('POST', '/api/observaciones', {
-      id_alumno: idAlumno, id_actividad: parseInt(value),
-      nota_cruda: `Indicador completado: ${label.textContent}`,
+      id_alumno: idAlumno, id_actividad: value ? parseInt(value) : null,
+      nota_cruda: nota,
       tipo: 'texto'
     });
     mostrarToast('Observación guardada');
+    if (input) input.value = '';
+    if (item) {
+      item.classList.add('observation-saved');
+      setTimeout(() => item.classList.remove('observation-saved'), 1200);
+    }
     cargarObsHoy();
   } catch (e) {
     mostrarToast('Error: ' + e.message, 'danger');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '💾';
+    btn.removeAttribute('aria-busy');
+    btn.innerHTML = 'Guardar observación';
   }
 }
 
@@ -269,8 +313,13 @@ async function toggleRecord(btn) {
 
     mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
     mr.onstop = async () => {
+      if (recordingState.timer) clearInterval(recordingState.timer);
       btn.classList.remove('recording');
-      btn.innerHTML = '🎤';
+      btn.setAttribute('aria-pressed', 'false');
+      btn.removeAttribute('aria-label');
+      const status = btn.closest('.observation-actions')?.querySelector('.recording-status');
+      if (status) status.textContent = '';
+       btn.innerHTML = '🎤 Grabar audio';
       stream.getTracks().forEach(t => t.stop());
       const duracion = (Date.now() - startTime) / 1000;
       if (duracion < 1) {
@@ -289,6 +338,16 @@ async function toggleRecord(btn) {
 
     mr.start();
     btn.classList.add('recording');
+    btn.setAttribute('aria-pressed', 'true');
+    const status = btn.closest('.observation-actions')?.querySelector('.recording-status');
+    const updateRecordingStatus = () => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const clock = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+      if (status) status.textContent = `Grabando ${clock} · tocá para detener`;
+      btn.setAttribute('aria-label', `Detener grabación, ${clock}`);
+    };
+    updateRecordingStatus();
+    recordingState.timer = setInterval(updateRecordingStatus, 1000);
     btn.innerHTML = '⏹';
     mostrarToast('Grabando... toca el botón rojo para detener', 'info');
   } catch (e) {
@@ -353,7 +412,7 @@ function toggleSeleccionObs() {
     btnTodo.classList.remove('d-none');
     mostrarCheckboxes();
   } else {
-    btn.textContent = 'Eliminar';
+     btn.textContent = 'Gestionar eliminaciones';
     btn.className = 'btn btn-sm btn-outline-danger';
     btnEliminar.classList.add('d-none');
     btnTodo.classList.add('d-none');
@@ -416,20 +475,36 @@ async function cargarObsAlumno(idAlumno) {
   try {
     const data = await api('GET', `/api/alumno/${idAlumno}/detalle`);
     const obs = data.observaciones || [];
+    const tieneInforme = Boolean(data.informe && data.informe.contenido_informe);
+    const pasos = document.querySelectorAll('.student-journey .journey-step');
+    if (pasos.length === 3) {
+      pasos[0].classList.toggle('journey-step-done', obs.length > 0);
+      pasos[0].classList.toggle('journey-step-current', obs.length === 0);
+      pasos[1].classList.toggle('journey-step-done', tieneInforme);
+      pasos[1].classList.toggle('journey-step-current', obs.length > 0 && !tieneInforme);
+      pasos[2].classList.toggle('journey-step-current', tieneInforme);
+      pasos.forEach((paso, index) => {
+        if (paso.classList.contains('journey-step-current')) paso.setAttribute('aria-current', 'step');
+        else paso.removeAttribute('aria-current');
+      });
+    }
 
     // Mostrar informe si existe
-    if (data.informe && data.informe.contenido_informe) {
+    if (tieneInforme) {
       mostrarInforme(ic, data.informe.contenido_informe, idAlumno);
     } else {
       if (obs.length > 0) {
-        ic.innerHTML = `<div class="text-center py-4">
-          <p class="mb-2 fs-4">📄</p>
-          <p class="small text-muted">Hay ${obs.length} observaciones. Presioná "Generar" para crear el informe.</p>
+        ic.innerHTML = `<div class="report-empty">
+          <span class="report-empty-icon" aria-hidden="true">✦</span>
+          <strong>Ya tenés material para armar el informe</strong>
+          <span>${obs.length} ${obs.length === 1 ? 'observación lista' : 'observaciones listas'}. Generá un borrador para revisarlo y editarlo.</span>
         </div>`;
       } else {
-        ic.innerHTML = `<div class="text-center py-4 text-muted">
-          <p class="mb-1 fs-4">📄</p>
-          <p class="small">No hay indicadores registrados para generar informe.</p>
+        ic.innerHTML = `<div class="report-empty">
+          <span class="report-empty-icon" aria-hidden="true">✦</span>
+          <strong>El informe empieza con una observación</strong>
+          <span>Registrá un momento de este alumno desde el inicio.</span>
+          <a href="/dashboard" class="btn btn-outline-primary mt-2">Ir al aula</a>
         </div>`;
       }
     }
@@ -501,6 +576,8 @@ function mostrarInforme(container, contenido, idAlumno) {
       <button class="btn btn-sm btn-outline-secondary" onclick="editarInforme(${idAlumno})" id="btnEditarInforme">✏️ Editar</button>
     </div>
   `;
+  const generateBtn = document.getElementById('btnGenerar');
+  if (generateBtn) generateBtn.textContent = 'Regenerar informe';
 }
 
 async function editarInforme(idAlumno) {
@@ -570,7 +647,7 @@ async function generarInforme(idAlumno, auto = false) {
     ic.innerHTML = `<div class="alert alert-danger py-2 small">Error: ${e.message}</div>`;
     if (!auto) mostrarToast('Error al generar informe: ' + e.message, 'danger');
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Generar / Regenerar'; }
+     if (btn) { btn.disabled = false; btn.innerHTML = document.getElementById('informeView') ? 'Regenerar informe' : 'Generar informe'; }
   }
 }
 
@@ -808,8 +885,9 @@ async function eliminarActividad(id) {
   const btn = document.createElement('a');
   btn.className = 'soporte-btn';
   btn.href = '/soporte';
-  btn.title = 'Soporte';
-  btn.innerHTML = '<span>💬</span><span class="soporte-badge d-none"></span>';
+  btn.title = 'Abrir ayuda y soporte';
+  btn.setAttribute('aria-label', 'Abrir ayuda y soporte');
+  btn.innerHTML = '<span class="soporte-avatar-mini" aria-hidden="true">👩‍🏫</span><span class="soporte-label">¿Necesitás ayuda?</span><span class="soporte-badge d-none"></span>';
   document.body.appendChild(btn);
 
   async function actualizarBadge() {
@@ -858,3 +936,10 @@ window.addEventListener('appinstalled', () => {
   document.getElementById('installBanner')?.classList.remove('show');
 });
 
+
+async function cambiarSala(idSala) {
+  try {
+    await api('POST', '/api/salas/activar', { id_sala: Number(idSala) });
+    window.location.reload();
+  } catch (e) { mostrarToast(e.message || 'No pudimos cambiar de sala.', 'danger'); }
+}

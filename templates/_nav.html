@@ -1,0 +1,13 @@
+<nav class="navbar navbar-expand navbar-dark shadow-sm sticky-top app-navbar">
+  <div class="container-fluid px-3 app-nav-inner">
+    <a class="navbar-brand app-brand" href="/dashboard" aria-label="Ir al inicio de Infia"><img src="/static/icons/iconoinfia.png" alt="" class="app-logo"> <span>Infia</span></a>
+    {% if salas_docente and sala_actual %}<div class="nav-room-switcher"><label for="navRoomSelect">Sala</label><select id="navRoomSelect" aria-label="Cambiar de sala" onchange="cambiarSala(this.value)">{% for sala_item in salas_docente %}<option value="{{ sala_item.id_sala }}" {% if sala_item.id_sala|int == sala_actual.id_sala|int %}selected{% endif %}>{{ sala_item.nombre }}</option>{% endfor %}</select><a href="/salas" title="Administrar salas" aria-label="Administrar salas">⚙</a></div>{% endif %}
+    <div class="nav-links app-nav-links" aria-label="Navegación principal">
+      <a class="nav-link-item {% if active_page == 'dashboard' %}active{% endif %}" href="/dashboard" {% if active_page == 'dashboard' %}aria-current="page"{% endif %}>Inicio</a>
+      <a class="nav-link-item {% if active_page == 'planificacion' %}active{% endif %}" href="/planificacion" {% if active_page == 'planificacion' %}aria-current="page"{% endif %}>Planificación</a>
+      <span class="nav-divider"></span>
+      <a class="nav-link-item {% if active_page == 'perfil' %}active{% endif %}" href="/perfil" {% if active_page == 'perfil' %}aria-current="page"{% endif %}>Perfil</a>
+      <button class="nav-link-logout" type="button" onclick="logout()">Salir</button>
+    </div>
+  </div>
+</nav>

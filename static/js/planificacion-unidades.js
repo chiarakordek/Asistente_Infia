@@ -1,63 +1,17 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Infia - Unidades</title>
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/static/icons/iconoinfia.png">
-  <link rel="icon" type="image/png" href="/static/icons/iconoinfia.png">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=25">
-</head>
-<body>
-  {% set active_page = 'unidades' %}{% include '_nav.html' %}
-
-  <div class="container-fluid px-3 py-3" style="max-width:800px">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <div><h1 class="page-title">Mis unidades</h1><p class="page-lead">Guardá la planificación que usás en tus salas.</p></div>
-      <button class="btn btn-sm btn-primary" onclick="mostrarModalUnidad()">Nueva unidad</button>
-    </div>
-    <div id="unidadesContainer"><div class="text-center py-5 text-muted">Cargando...</div></div>
-  </div>
-
-  <div class="modal fade" id="modalUnidad" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h6 class="modal-title" id="modalUnidadTitle">Nueva unidad</h6>
-          <button class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <form id="formUnidad">
-            <div class="mb-2">
-              <label class="form-label">Título</label>
-              <input type="text" id="uTitulo" class="form-control" placeholder="Ej: La familia" required>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Contenido / Descripción</label>
-              <textarea id="uContenido" class="form-control" rows="4" placeholder="Descripción de la unidad..."></textarea>
-            </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button class="btn btn-sm btn-primary" onclick="guardarUnidad()">Guardar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/static/js/app.js?v=20"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', cargarUnidades);
+document.addEventListener('DOMContentLoaded', () => {
+  cargarUnidades();
+  document.getElementById('formUnidad').addEventListener('submit', event => { event.preventDefault(); guardarUnidad(); });
+});
     let editandoUnidadId = null;
 
     async function cargarUnidades() {
       const c = document.getElementById('unidadesContainer');
       try {
         const unidades = await api('GET', '/api/unidades');
+        const unidadSelect = document.getElementById('actUnidad');
+        const unidadSeleccionada = unidadSelect.value;
+        unidadSelect.replaceChildren(new Option('Sin unidad', ''), ...unidades.map(u => new Option(u.titulo, u.id_unidad)));
+        if (unidades.some(u => String(u.id_unidad) === unidadSeleccionada)) unidadSelect.value = unidadSeleccionada;
         if (!unidades.length) {
           c.innerHTML = '<div class="text-center py-5 text-muted"><p class="mb-1" style="font-size:2rem">📚</p><p class="small">No hay unidades didácticas todavía.</p></div>';
           return;
@@ -118,6 +72,10 @@
     async function editarUnidad(id) {
       try {
         const unidades = await api('GET', '/api/unidades');
+        const unidadSelect = document.getElementById('actUnidad');
+        const unidadSeleccionada = unidadSelect.value;
+        unidadSelect.replaceChildren(new Option('Sin unidad', ''), ...unidades.map(u => new Option(u.titulo, u.id_unidad)));
+        if (unidades.some(u => String(u.id_unidad) === unidadSeleccionada)) unidadSelect.value = unidadSeleccionada;
         const u = unidades.find(x => x.id_unidad === id);
         if (!u) return;
         editandoUnidadId = id;
@@ -157,9 +115,3 @@
         cargarUnidades();
       } catch (e) { mostrarToast(e.message, 'danger'); }
     }
-  </script>
-</body>
-</html>
-
-
-

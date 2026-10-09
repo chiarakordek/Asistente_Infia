@@ -1,5 +1,7 @@
 import os
 import json
+import base64
+import binascii
 import functools
 from datetime import date
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -71,7 +73,7 @@ def seguridad_headers(resp):
     resp.headers['Referrer-Policy'] = 'same-origin'
     if not os.environ.get('FLASK_DEBUG'):
         resp.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    csp = "default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net; media-src 'self' blob:; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:"
+    csp = "default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net; media-src 'self' blob:; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: blob:"
     resp.headers['Content-Security-Policy'] = csp
     return resp
 
@@ -88,6 +90,8 @@ from src.db import (
     crear_unidad, obtener_unidades, obtener_unidad, actualizar_unidad, eliminar_unidad,
     obtener_stats, guardar_reset_token,
     obtener_suscripcion,
+    obtener_salas_docente, obtener_sala_docente, crear_sala_docente,
+    actualizar_sala_docente, eliminar_sala_docente,
     obtener_todos_usuarios, obtener_pagos, obtener_ingresos_mes,
     obtener_o_crear_soporte, enviar_mensaje, obtener_mensajes_soporte,
     marcar_mensajes_leidos, contar_no_leidos_usuario, listar_soportes_admin,
@@ -112,8 +116,31 @@ AREAS_DEFAULT = [
     {'id': 0, 'nombre': 'Matemáticas'}, {'id': 0, 'nombre': 'Ciencias Sociales, Ciencias Naturales y Tecnología'},
 ]
 
-def areas_para(user_id):
-    areas = obtener_areas_usuario(user_id)
+def sala_activa_id(user_id=None):
+    user_id = user_id or session.get('user_id')
+    if not user_id:
+        return None
+    salas = obtener_salas_docente(user_id)
+    if not salas:
+        return None
+    activos = {int(sala['id_sala']) for sala in salas}
+    actual = session.get('id_sala_activa')
+    if actual not in activos:
+        actual = int(salas[0]['id_sala'])
+        session['id_sala_activa'] = actual
+    return actual
+
+@app.context_processor
+def contexto_salas():
+    if not session.get('user_id'):
+        return {}
+    salas = obtener_salas_docente(session['user_id'])
+    actual_id = sala_activa_id(session['user_id'])
+    actual = next((s for s in salas if int(s['id_sala']) == actual_id), None)
+    return {'salas_docente': salas, 'sala_actual': actual}
+
+def areas_para(user_id, id_sala=None):
+    areas = obtener_areas_usuario(user_id, id_sala)
     return areas or AREAS_DEFAULT
 
 def hash_pass(pw):
@@ -162,7 +189,7 @@ def procesar_bajas_programadas():
 def bloquear_cuenta_en_baja():
     if 'user_id' not in session or request.path.startswith('/static'):
         return
-    if request.path in ('/config', '/api/usuario/baja/cancelar', '/api/usuario/baja', '/api/logout'):
+    if request.path in ('/config', '/cuenta', '/api/usuario/baja/cancelar', '/api/usuario/baja', '/api/logout'):
         return
     try:
         user = obtener_usuario_por_id(session['user_id'])
@@ -179,7 +206,7 @@ def verificar_suscripcion():
         return
     if 'user_id' not in session:
         return
-    if request.path in ('/suscripcion', '/config', '/api/logout', '/api/usuario/baja/cancelar') or request.path.startswith('/api/suscripcion'):
+    if request.path in ('/suscripcion', '/config', '/cuenta', '/api/logout', '/api/usuario/baja/cancelar') or request.path.startswith('/api/suscripcion'):
         return
     if request.path.startswith('/soporte') or request.path.startswith('/api/soporte'):
         return
@@ -241,32 +268,39 @@ def terminos_page():
 @login_required
 def dashboard_page():
     user = obtener_usuario_por_id(session['user_id'])
-    return render_template('dashboard.html', user=user, areas=areas_para(session['user_id']))
+    return render_template('dashboard.html', user=user, areas=areas_para(session['user_id'], sala_activa_id()))
+
+@app.route('/planificacion')
+@login_required
+def planificacion_page():
+    user = obtener_usuario_por_id(session['user_id'])
+    id_sala = sala_activa_id()
+    unidades = obtener_unidades(session['user_id'], id_sala)
+    seccion = request.args.get('seccion', 'indicadores')
+    if seccion not in ('indicadores', 'unidades', 'areas'):
+        seccion = 'indicadores'
+    return render_template('actividades.html', user=user, areas=areas_para(session['user_id'], id_sala), unidades=unidades, seccion=seccion)
 
 @app.route('/actividades')
 @login_required
 def actividades_page():
-    user = obtener_usuario_por_id(session['user_id'])
-    unidades = obtener_unidades(session['user_id'])
-    return render_template('actividades.html', user=user, areas=areas_para(session['user_id']), unidades=unidades)
+    return redirect('/planificacion?seccion=indicadores')
 
 @app.route('/unidades')
 @login_required
 def unidades_page():
-    user = obtener_usuario_por_id(session['user_id'])
-    return render_template('unidades.html', user=user)
+    return redirect('/planificacion?seccion=unidades')
 
 @app.route('/areas')
 @login_required
 def areas_page():
-    user = obtener_usuario_por_id(session['user_id'])
-    return render_template('areas.html', user=user)
+    return redirect('/planificacion?seccion=areas')
 
 @app.route('/alumno/<int:id_alumno>')
 @login_required
 def alumno_page(id_alumno):
     from src.db import obtener_alumnos
-    alumnos = obtener_alumnos(session['user_id'])
+    alumnos = obtener_alumnos(session['user_id'], sala_activa_id())
     alumno = next((a for a in alumnos if a['id_alumno'] == id_alumno), None)
     if not alumno:
         return redirect('/dashboard')
@@ -550,6 +584,8 @@ def api_login():
             return jsonify(error='Tu cuenta está pendiente de eliminación. Podés cancelarla desde tu sesión si todavía está activa.'), 403
         session.permanent = True
         session['user_id'] = user['id_usuario']
+        session.pop('id_sala_activa', None)
+        sala_activa_id(user['id_usuario'])
         _login_intentos[ip] = []
         admin_email = os.environ.get('ADMIN_EMAIL', '')
         es_admin_login = bool(admin_email and (user['email'] or '').lower() == admin_email.lower())
@@ -588,6 +624,8 @@ def api_register():
     if uid is None:
         return jsonify(error='El email ya está registrado'), 400
     session['user_id'] = uid
+    session.pop('id_sala_activa', None)
+    sala_activa_id(uid)
     return jsonify(ok=True, nombre=nombre)
 
 @app.route('/api/logout')
@@ -629,13 +667,13 @@ def api_me():
 @app.route('/api/alumnos', methods=['GET'])
 @login_required
 def api_listar_alumnos():
-    return jsonify(obtener_alumnos(session['user_id']))
+    return jsonify(obtener_alumnos(session['user_id'], sala_activa_id()))
 
 @app.route('/api/alumnos', methods=['POST'])
 @login_required
 def api_crear_alumno():
     data = request.json
-    uid = registrar_alumno(session['user_id'], data['nombre'], data['apellido'])
+    uid = registrar_alumno(session['user_id'], data['nombre'], data['apellido'], sala_activa_id())
     return jsonify(id_alumno=uid), 201
 
 @app.route('/api/alumnos/multi', methods=['POST'])
@@ -650,7 +688,7 @@ def api_crear_alumnos_multi():
         nombre = a.get('nombre', '').strip()
         apellido = a.get('apellido', '').strip()
         if nombre and apellido:
-            uid = registrar_alumno(session['user_id'], nombre, apellido)
+            uid = registrar_alumno(session['user_id'], nombre, apellido, sala_activa_id())
             ids.append(uid)
     return jsonify(creados=len(ids)), 201
 
@@ -658,7 +696,7 @@ def api_crear_alumnos_multi():
 @login_required
 def api_eliminar_alumno(id_alumno):
     try:
-        eliminar_alumno(id_alumno, session['user_id'])
+        eliminar_alumno(id_alumno, session['user_id'], sala_activa_id())
     except Exception as e:
         return jsonify(error=str(e)), 500
     return jsonify(ok=True)
@@ -672,7 +710,7 @@ def api_eliminar_alumnos_multi():
         return jsonify(error='Sin IDs'), 400
     try:
         for aid in ids:
-            eliminar_alumno(aid, session['user_id'])
+            eliminar_alumno(aid, session['user_id'], sala_activa_id())
     except Exception as e:
         return jsonify(error=str(e)), 500
     return jsonify(eliminados=len(ids))
@@ -683,26 +721,26 @@ def api_eliminar_alumnos_multi():
 @login_required
 def api_listar_actividades():
     fecha = request.args.get('fecha')
-    return jsonify(obtener_actividades_dia(session['user_id'], fecha))
+    return jsonify(obtener_actividades_dia(session['user_id'], fecha, sala_activa_id()))
 
 @app.route('/api/actividades', methods=['POST'])
 @login_required
 def api_crear_actividad():
     data = request.json
-    uid = crear_actividad(session['user_id'], data['nombre'], data['area'], data.get('fecha'))
+    uid = crear_actividad(session['user_id'], data['nombre'], data['area'], data.get('fecha'), id_sala=sala_activa_id())
     return jsonify(id_actividad=uid), 201
 
 @app.route('/api/actividades/<int:id_actividad>', methods=['PUT'])
 @login_required
 def api_actualizar_actividad(id_actividad):
     data = request.json
-    actualizar_actividad(id_actividad, session['user_id'], data.get('nombre'), data.get('area'))
+    actualizar_actividad(id_actividad, session['user_id'], data.get('nombre'), data.get('area'), sala_activa_id())
     return jsonify(ok=True)
 
 @app.route('/api/actividades/<int:id_actividad>', methods=['DELETE'])
 @login_required
 def api_eliminar_actividad(id_actividad):
-    eliminar_actividad(id_actividad, session['user_id'])
+    eliminar_actividad(id_actividad, session['user_id'], sala_activa_id())
     return jsonify(ok=True)
 
 @app.route('/api/actividades/delete-multi', methods=['POST'])
@@ -714,7 +752,7 @@ def api_eliminar_actividades_multi():
         return jsonify(error='Sin IDs'), 400
     try:
         for aid in ids:
-            eliminar_actividad(aid, session['user_id'])
+            eliminar_actividad(aid, session['user_id'], sala_activa_id())
     except Exception as e:
         return jsonify(error=str(e)), 500
     return jsonify(eliminados=len(ids))
@@ -726,7 +764,10 @@ def api_crear_actividades_multi():
     actividades = data.get('actividades', [])
     if not actividades:
         return jsonify(error='No hay actividades'), 400
-    ids = crear_actividades_multi(session['user_id'], actividades, data.get('fecha'), data.get('id_unidad'))
+    id_unidad = data.get('id_unidad')
+    if id_unidad and not any(int(u['id_unidad']) == int(id_unidad) for u in obtener_unidades(session['user_id'], sala_activa_id())):
+        return jsonify(error='La unidad no pertenece a la sala activa.'), 400
+    ids = crear_actividades_multi(session['user_id'], actividades, data.get('fecha'), id_unidad, sala_activa_id())
     return jsonify(ids=ids, count=len(ids)), 201
 
 # ─── API: OBSERVACIONES ──────────────────
@@ -735,14 +776,18 @@ def api_crear_actividades_multi():
 @login_required
 def api_guardar_observacion():
     data = request.json
-    guardar_observacion(data['id_alumno'], data.get('id_actividad'),
-                        data['nota_cruda'], data.get('tipo', 'texto'))
+    try:
+        guardar_observacion(data['id_alumno'], data.get('id_actividad'),
+                            data['nota_cruda'], data.get('tipo', 'texto'),
+                            id_usuario=session['user_id'], id_sala=sala_activa_id())
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
     return jsonify(ok=True), 201
 
 @app.route('/api/observaciones/<int:id_observacion>', methods=['DELETE'])
 @login_required
 def api_eliminar_observacion(id_observacion):
-    ruta = eliminar_observacion(id_observacion)
+    ruta = eliminar_observacion(id_observacion, session['user_id'], sala_activa_id())
     if ruta:
         audio_path = os.path.join(app.static_folder, 'audios', os.path.basename(ruta))
         if os.path.exists(audio_path):
@@ -756,7 +801,7 @@ def api_eliminar_observaciones_multi():
     ids = data.get('ids', [])
     if not ids:
         return jsonify(error='No hay IDs'), 400
-    for ruta in eliminar_observaciones_multi(ids):
+    for ruta in eliminar_observaciones_multi(ids, session['user_id'], sala_activa_id()):
         audio_path = os.path.join(app.static_folder, 'audios', os.path.basename(ruta))
         if os.path.exists(audio_path):
             os.remove(audio_path)
@@ -765,18 +810,20 @@ def api_eliminar_observaciones_multi():
 @app.route('/api/observaciones/alumno/<int:id_alumno>')
 @login_required
 def api_obs_alumno(id_alumno):
+    if not any(a['id_alumno'] == id_alumno for a in obtener_alumnos(session['user_id'], sala_activa_id())):
+        return jsonify(error='Alumno no encontrado'), 404
     return jsonify(obtener_observaciones_alumno(id_alumno))
 
 @app.route('/api/observaciones/hoy')
 @login_required
 def api_obs_hoy():
-    return jsonify(obtener_todas_observaciones_dia(session['user_id'], request.args.get('fecha')))
+    return jsonify(obtener_todas_observaciones_dia(session['user_id'], request.args.get('fecha'), sala_activa_id()))
 
 @app.route('/api/alumno/<int:id_alumno>/detalle')
 @login_required
 def api_alumno_detalle(id_alumno):
     from src.db import obtener_alumnos
-    alumnos = obtener_alumnos(session['user_id'])
+    alumnos = obtener_alumnos(session['user_id'], sala_activa_id())
     alumno = next((a for a in alumnos if a['id_alumno'] == id_alumno), None)
     if not alumno:
         return jsonify(error='Alumno no encontrado'), 404
@@ -794,6 +841,12 @@ def api_subir_audio():
     if 'audio' not in request.files:
         return jsonify(error='No se envió archivo de audio'), 400
     f = request.files['audio']
+    id_alumno = request.form.get('id_alumno', type=int)
+    id_actividad = request.form.get('id_actividad', type=int)
+    if not id_alumno or not any(a['id_alumno'] == id_alumno for a in obtener_alumnos(session['user_id'], sala_activa_id())):
+        return jsonify(error='Alumno no encontrado en la sala activa.'), 404
+    if id_actividad and not any(a['id_actividad'] == id_actividad for a in obtener_actividades_dia(session['user_id'], id_sala=sala_activa_id())):
+        return jsonify(error='El indicador no pertenece a la sala activa.'), 400
     ext = os.path.splitext(f.filename)[1] or '.webm'
     audio_filename = f'audio_{session["user_id"]}_{os.urandom(4).hex()}{ext}'
     path = os.path.join(AUDIO_DIR, audio_filename)
@@ -807,9 +860,11 @@ def api_subir_audio():
     finally:
         if os.path.exists(path):
             os.remove(path)
-    guardar_observacion(int(request.form['id_alumno']),
-                        request.form.get('id_actividad', type=int),
-                        texto, 'audio', ruta_audio=None)
+    try:
+        guardar_observacion(id_alumno, id_actividad, texto, 'audio', ruta_audio=None,
+                            id_usuario=session['user_id'], id_sala=sala_activa_id())
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
     return jsonify(ok=True, texto=texto, ruta_audio=None), 201
 
 # ─── API: AREAS ───────────────────────────
@@ -826,7 +881,7 @@ def api_crear_area():
     nombre = (data.get('nombre') or '').strip()
     if not nombre:
         return jsonify(error='Falta nombre'), 400
-    crear_area(session['user_id'], nombre)
+    crear_area(session['user_id'], nombre, sala_activa_id())
     return jsonify(ok=True), 201
 
 @app.route('/api/areas/<int:id_area>', methods=['PUT'])
@@ -836,14 +891,14 @@ def api_renombrar_area(id_area):
     nuevo = (data.get('nombre') or '').strip()
     if not nuevo:
         return jsonify(error='Falta nombre'), 400
-    renombrar_area(session['user_id'], id_area, nuevo)
+    renombrar_area(session['user_id'], id_area, nuevo, sala_activa_id())
     return jsonify(ok=True)
 
 @app.route('/api/areas/<int:id_area>', methods=['DELETE'])
 @login_required
 def api_eliminar_area(id_area):
     try:
-        eliminar_area(session['user_id'], id_area)
+        eliminar_area(session['user_id'], id_area, sala_activa_id())
     except Exception as e:
         return jsonify(error=str(e)), 500
     return jsonify(ok=True)
@@ -857,7 +912,7 @@ def api_eliminar_areas_multi():
         return jsonify(error='Sin IDs'), 400
     try:
         for aid in ids:
-            eliminar_area(session['user_id'], aid)
+            eliminar_area(session['user_id'], aid, sala_activa_id())
     except Exception as e:
         return jsonify(error=str(e)), 500
     return jsonify(eliminados=len(ids))
@@ -872,7 +927,12 @@ def api_rename_area():
         return jsonify(error='Faltan datos'), 400
     if area_vieja == area_nueva:
         return jsonify(error='El nombre nuevo debe ser diferente'), 400
-    renombrar_area(session['user_id'], area_vieja, area_nueva)
+    # El renombrado por nombre también queda limitado al curso activo.
+    areas_actuales = obtener_areas_usuario(session['user_id'], sala_activa_id())
+    area = next((a for a in areas_actuales if a['nombre'] == area_vieja), None)
+    if not area:
+        return jsonify(error='No encontramos esa área en la sala activa.'), 404
+    renombrar_area(session['user_id'], area['id'], area_nueva, sala_activa_id())
     return jsonify(ok=True)
 
 # ─── API: CAMBIO / RESET DE CONTRASEÑA ────
@@ -962,13 +1022,86 @@ def api_cambiar_contraseña():
 @login_required
 def config_page():
     user = obtener_usuario_por_id(session['user_id'])
-    return render_template('config.html', baja_pendiente=bool(user and user.get('baja_solicitada_en')))
+    return render_template('config.html')
+
+@app.route('/cuenta')
+@login_required
+def cuenta_page():
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('cuenta.html', baja_pendiente=bool(user and user.get('baja_solicitada_en')))
 
 @app.route('/perfil')
 @login_required
 def perfil_page():
     user = obtener_usuario_por_id(session['user_id'])
     return render_template('perfil.html', user=user, es_admin=es_admin())
+
+@app.route('/salas')
+@login_required
+def salas_page():
+    return render_template('salas.html')
+
+@app.route('/api/salas', methods=['GET'])
+@login_required
+def api_listar_salas():
+    activa = sala_activa_id()
+    return jsonify([{**s, 'activa': int(s['id_sala']) == activa} for s in obtener_salas_docente(session['user_id'])])
+
+@app.route('/api/salas', methods=['POST'])
+@login_required
+def api_crear_sala():
+    data = request.get_json(silent=True) or {}
+    nombre = (data.get('nombre') or '').strip()
+    sala = (data.get('sala') or '').strip()
+    turno = (data.get('turno') or '').strip()
+    if not nombre or not sala or turno not in ('Mañana', 'Tarde'):
+        return jsonify(error='Completá el nombre, la sala y el turno.'), 400
+    if len(nombre) > 80:
+        return jsonify(error='El nombre de la sala no puede superar los 80 caracteres.'), 400
+    if any(s['nombre'].casefold() == nombre.casefold() for s in obtener_salas_docente(session['user_id'])):
+        return jsonify(error='Ya tenés una sala con ese nombre.'), 409
+    id_sala = crear_sala_docente(session['user_id'], nombre, sala, turno)
+    return jsonify(ok=True, id_sala=id_sala), 201
+
+@app.route('/api/salas/<int:id_sala>', methods=['PUT'])
+@login_required
+def api_actualizar_sala(id_sala):
+    data = request.get_json(silent=True) or {}
+    nombre = (data.get('nombre') or '').strip()
+    sala = (data.get('sala') or '').strip()
+    turno = (data.get('turno') or '').strip()
+    if not obtener_sala_docente(id_sala, session['user_id']):
+        return jsonify(error='No encontramos esa sala.'), 404
+    if not nombre or not sala or turno not in ('Mañana', 'Tarde') or len(nombre) > 80:
+        return jsonify(error='Revisá el nombre, la sala y el turno.'), 400
+    if any(int(s['id_sala']) != id_sala and s['nombre'].casefold() == nombre.casefold()
+           for s in obtener_salas_docente(session['user_id'])):
+        return jsonify(error='Ya tenés una sala con ese nombre.'), 409
+    actualizar_sala_docente(id_sala, session['user_id'], nombre, sala, turno)
+    return jsonify(ok=True)
+
+@app.route('/api/salas/<int:id_sala>', methods=['DELETE'])
+@login_required
+def api_eliminar_sala(id_sala):
+    if not obtener_sala_docente(id_sala, session['user_id']):
+        return jsonify(error='No encontramos esa sala.'), 404
+    if not eliminar_sala_docente(id_sala, session['user_id']):
+        return jsonify(error='Solo podés eliminar una sala vacía y si conservás al menos una sala.'), 409
+    if session.get('id_sala_activa') == id_sala:
+        session.pop('id_sala_activa', None)
+        sala_activa_id(session['user_id'])
+    return jsonify(ok=True)
+
+@app.route('/api/salas/activar', methods=['POST'])
+@login_required
+def api_activar_sala():
+    data = request.get_json(silent=True) or {}
+    id_sala = data.get('id_sala')
+    sala = obtener_sala_docente(id_sala, session['user_id']) if id_sala else None
+    if not sala:
+        return jsonify(error='No encontramos esa sala.'), 404
+    session['id_sala_activa'] = int(sala['id_sala'])
+    return jsonify(ok=True, id_sala=int(sala['id_sala']))
 
 @app.route('/api/usuario/perfil', methods=['PUT'])
 @login_required
@@ -983,6 +1116,39 @@ def api_actualizar_perfil():
     from src.db import actualizar_perfil
     actualizar_perfil(session['user_id'], nombre, sala, turno)
     return jsonify(ok=True)
+
+@app.route('/api/usuario/avatar', methods=['PUT'])
+@login_required
+def api_actualizar_avatar():
+    data = request.get_json(silent=True) or {}
+    avatar_data = data.get('avatar_data')
+    if avatar_data is None:
+        from src.db import actualizar_avatar
+        actualizar_avatar(session['user_id'], None)
+        return jsonify(ok=True, avatar_data=None)
+
+    if not isinstance(avatar_data, str) or len(avatar_data) > 250 * 1024:
+        return jsonify(error='La foto es demasiado grande. Elegí una imagen más liviana.'), 400
+    match = re.fullmatch(r'data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)', avatar_data)
+    if not match:
+        return jsonify(error='Elegí una imagen PNG, JPG o WebP válida.'), 400
+    mime, encoded = match.groups()
+    try:
+        image_bytes = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError):
+        return jsonify(error='No pudimos leer esa imagen. Probá con otra.'), 400
+    if not image_bytes or len(image_bytes) > 180 * 1024:
+        return jsonify(error='La foto optimizada debe pesar menos de 180 KB.'), 400
+    valid_signature = (
+        (mime == 'png' and image_bytes.startswith(b'\x89PNG\r\n\x1a\n')) or
+        (mime == 'jpeg' and image_bytes.startswith(b'\xff\xd8\xff')) or
+        (mime == 'webp' and len(image_bytes) > 12 and image_bytes.startswith(b'RIFF') and image_bytes[8:12] == b'WEBP')
+    )
+    if not valid_signature:
+        return jsonify(error='El formato de la imagen no coincide con el archivo.'), 400
+    from src.db import actualizar_avatar
+    actualizar_avatar(session['user_id'], avatar_data)
+    return jsonify(ok=True, avatar_data=avatar_data)
 
 # ─── PÁGINA: RESET ─────────────────────────
 
@@ -1003,26 +1169,26 @@ def forgot_page():
 @app.route('/api/unidades', methods=['GET'])
 @login_required
 def api_listar_unidades():
-    return jsonify(obtener_unidades(session['user_id']))
+    return jsonify(obtener_unidades(session['user_id'], sala_activa_id()))
 
 @app.route('/api/unidades', methods=['POST'])
 @login_required
 def api_crear_unidad():
     data = request.json
-    uid = crear_unidad(session['user_id'], data['titulo'], data.get('contenido', ''))
+    uid = crear_unidad(session['user_id'], data['titulo'], data.get('contenido', ''), id_sala=sala_activa_id())
     return jsonify(id_unidad=uid), 201
 
 @app.route('/api/unidades/<int:id_unidad>', methods=['PUT'])
 @login_required
 def api_actualizar_unidad(id_unidad):
     data = request.json
-    actualizar_unidad(id_unidad, session['user_id'], data['titulo'], data.get('contenido', ''))
+    actualizar_unidad(id_unidad, session['user_id'], data['titulo'], data.get('contenido', ''), sala_activa_id())
     return jsonify(ok=True)
 
 @app.route('/api/unidades/<int:id_unidad>', methods=['DELETE'])
 @login_required
 def api_eliminar_unidad(id_unidad):
-    eliminar_unidad(id_unidad, session['user_id'])
+    eliminar_unidad(id_unidad, session['user_id'], sala_activa_id())
     return jsonify(ok=True)
 
 @app.route('/api/unidades/delete-multi', methods=['POST'])
@@ -1034,7 +1200,7 @@ def api_eliminar_unidades_multi():
         return jsonify(error='Sin IDs'), 400
     try:
         for uid in ids:
-            eliminar_unidad(uid, session['user_id'])
+            eliminar_unidad(uid, session['user_id'], sala_activa_id())
     except Exception as e:
         return jsonify(error=str(e)), 500
     return jsonify(eliminados=len(ids))
@@ -1044,7 +1210,7 @@ def api_eliminar_unidades_multi():
 @app.route('/api/stats')
 @login_required
 def api_stats():
-    return jsonify(obtener_stats(session['user_id']))
+    return jsonify(obtener_stats(session['user_id'], sala_activa_id()))
 
 # ─── API: EXPORT ──────────────────────────
 
@@ -1052,7 +1218,7 @@ def api_stats():
 @login_required
 def api_export_csv():
     import csv, io
-    alumnos = obtener_alumnos(session['user_id'])
+    alumnos = obtener_alumnos(session['user_id'], sala_activa_id())
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['Apellido', 'Nombre', 'Fecha', 'Actividad', 'Area', 'Observacion', 'Tipo'])
@@ -1077,6 +1243,8 @@ def api_export_csv():
 @app.route('/api/informe/<int:id_alumno>', methods=['POST'])
 @login_required
 def api_generar_informe(id_alumno):
+    if not any(a['id_alumno'] == id_alumno for a in obtener_alumnos(session['user_id'], sala_activa_id())):
+        return jsonify(error='Alumno no encontrado en la sala activa.'), 404
     contenido = formatear_informe_ia(id_alumno)
     if contenido:
         guardar_informe(id_alumno, 'Cuatrimestral', contenido)
@@ -1087,7 +1255,7 @@ def api_generar_informe(id_alumno):
 @login_required
 def api_informe_pdf(id_alumno):
     from src.pdf import informe_to_pdf
-    alumnos = obtener_alumnos(session['user_id'])
+    alumnos = obtener_alumnos(session['user_id'], sala_activa_id())
     alumno = next((a for a in alumnos if a['id_alumno'] == id_alumno), None)
     if not alumno:
         return jsonify(error='Alumno no encontrado'), 404
@@ -1104,6 +1272,8 @@ def api_informe_pdf(id_alumno):
 @app.route('/api/informe/<int:id_alumno>', methods=['PUT'])
 @login_required
 def api_actualizar_informe(id_alumno):
+    if not any(a['id_alumno'] == id_alumno for a in obtener_alumnos(session['user_id'], sala_activa_id())):
+        return jsonify(error='Alumno no encontrado en la sala activa.'), 404
     data = request.json
     contenido = (data.get('contenido') or '').strip()
     if not contenido:
