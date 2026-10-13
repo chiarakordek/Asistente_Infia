@@ -18,6 +18,8 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
 )
 
+MODELO_INFORMES = os.environ.get('GROQ_MODEL', 'openai/gpt-oss-120b')
+
 def fetch_all(sql, params=None):
     conn = psycopg2.connect(DATABASE_URL, sslmode='require')
     try:
@@ -56,6 +58,9 @@ def obtener_datos_alumno(id_alumno):
     return alumno, notas
 
 def formatear_informe_ia(id_alumno):
+    if not GROQ_API_KEY or '...' in GROQ_API_KEY:
+        raise RuntimeError('Falta configurar GROQ_API_KEY en las variables de entorno del servidor.')
+
     alumno, notas = obtener_datos_alumno(id_alumno)
     if not alumno:
         return None
@@ -163,34 +168,24 @@ IMPORTANTE: El ejemplo es solo para el ESTILO. NO copies el contenido. Usá las 
 OBSERVACIONES DEL ALUMNO:
 {texto_observaciones_ia}"""
 
-    for intento in range(3):
-        try:
-            response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.7,
-                max_tokens=4096,
-            )
-            texto = response.choices[0].message.content
-            if texto:
-                # Los datos identificatorios se incorporan localmente, no se envían al proveedor.
-                texto = texto.replace('ALUMNO', nombre)
-                texto = texto.replace('SALA', sala or '')
-                texto = texto.replace('DOCENTE', docente or '')
-                texto = texto.replace('TURNO', turno or '')
-                return texto
-            return None
-        except Exception as e:
-            print(f"Error Groq (intento {intento+1}): {e}")
-            if intento < 2:
-                import time
-                time.sleep(3)
-            else:
-                return None
-    return None
+    response = client.chat.completions.create(
+        model=MODELO_INFORMES,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.7,
+        max_completion_tokens=4096,
+    )
+    texto = response.choices[0].message.content
+    if not texto:
+        return None
+    # Los datos identificatorios se incorporan localmente, no se envían al proveedor.
+    texto = texto.replace('ALUMNO', nombre)
+    texto = texto.replace('SALA', sala or '')
+    texto = texto.replace('DOCENTE', docente or '')
+    texto = texto.replace('TURNO', turno or '')
+    return texto
 
 if __name__ == '__main__':
     print(formatear_informe_ia(1))

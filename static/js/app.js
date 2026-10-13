@@ -144,6 +144,7 @@ async function logout() {
 let actividadesGlobales = [];
 let recordingState = { mediaRecorder: null, chunks: [], alumnoId: null, actividadId: null, button: null };
 let seleccionMode = false;
+let alumnoObservacionActiva = null;
 
 async function cargarDashboard() {
   await cargarActividadesSelect();
@@ -171,7 +172,8 @@ async function cargarAlumnos() {
       if (count) count.textContent = '0 alumnos';
       c.innerHTML = `<div class="text-center py-5 text-muted">
         <p class="mb-2 fs-4">👩‍🏫</p>
-        <p class="small">Todavía no cargaste alumnos. Usá el formulario de arriba para agregar.</p>
+        <p class="small">Todavía no cargaste alumnos. Agregá tu grupo para empezar a registrar observaciones.</p>
+        <button class="btn btn-primary btn-sm" type="button" onclick="mostrarModalAlumno()">Agregar primer alumno</button>
       </div>`;
       return;
     }
@@ -186,42 +188,13 @@ async function cargarAlumnos() {
          <div class="alumno-top">
            <input type="checkbox" class="form-check-input alumno-check" data-id="${a.id_alumno}" onchange="actualizarBulkBar()">
            <a href="/alumno/${a.id_alumno}" class="alumno-nombre text-decoration-none"><span class="student-avatar" aria-hidden="true">${(a.nombre || '?').charAt(0)}${(a.apellido || '?').charAt(0)}</span><span class="student-name">${a.apellido}, ${a.nombre}</span><span class="student-open" aria-hidden="true">↗</span></a>
-         </div>
-         <div class="alumno-observation">
-           <div class="dropdown actividad-dropdown flex-grow-1" data-alumno="${a.id_alumno}">
-             <button class="btn btn-sm btn-outline-secondary dropdown-toggle text-truncate w-100" type="button" data-bs-toggle="dropdown">
-               <span class="actividad-label">Elegir indicador (opcional)</span>
-             </button>
-            <ul class="dropdown-menu w-100 dropdown-menu-actividades" style="max-height:40vh;overflow-y:auto">
-              <li><a class="dropdown-item" href="#" data-value="">— Sin indicador —</a></li>
-              ${actividadesGlobales.map(act => `<li><a class="dropdown-item actividad-opcion" href="#" data-value="${act.id_actividad}" data-area="${act.area}">${act.nombre}</a></li>`).join('')}
-             </ul>
-           </div>
-           <textarea class="form-control obs-input" rows="2" maxlength="2000" placeholder="¿Qué observaste hoy?"></textarea>
-           <div class="observation-actions">
-             <button class="btn btn-primary btn-save" onclick="guardarObs(${a.id_alumno}, this)">Guardar observación</button>
-             <button class="btn btn-outline-success btn-record" data-alumno="${a.id_alumno}" aria-label="Grabar observación de ${a.apellido}, ${a.nombre}" aria-pressed="false" onclick="toggleRecord(this)">🎤 Grabar audio</button>
-             <span class="recording-status" aria-live="off"></span>
-           </div>
+           <button type="button" class="btn btn-sm btn-outline-success student-quick-record" data-alumno="${a.id_alumno}" aria-label="Grabar observación de ${a.apellido}, ${a.nombre}" aria-pressed="false" title="Grabar observación por voz" onclick="toggleRecord(this)">🎤</button>
+           <button type="button" class="btn btn-sm btn-outline-primary student-add-observation" onclick="abrirModalObservacion(${a.id_alumno})"><span aria-hidden="true">＋</span> Registrar observación</button>
+           <span class="recording-status student-recording-status" aria-live="polite"></span>
          </div>
       </div>
     `).join('');
     if (typeof filtrarAlumnos === 'function') filtrarAlumnos();
-    // Attach dropdown item click handlers
-    document.querySelectorAll('.actividad-dropdown .dropdown-item').forEach(el => {
-      el.addEventListener('click', e => {
-        e.preventDefault();
-        const dd = el.closest('.actividad-dropdown');
-        const btn = dd.querySelector('.dropdown-toggle');
-        const label = dd.querySelector('.actividad-label');
-        const value = el.dataset.value;
-         const text = value ? el.textContent : 'Elegir indicador (opcional)';
-        dd.dataset.selected = value;
-        label.textContent = text;
-        btn.classList.toggle('btn-outline-primary', !!value);
-        btn.classList.toggle('btn-outline-secondary', !value);
-      });
-    });
   } catch (e) {
     c.innerHTML = `<div class="alert alert-danger py-2 small">Error: ${e.message}</div>`;
   }
@@ -233,11 +206,22 @@ async function cargarActividadesSelect() {
   } catch (e) { actividadesGlobales = []; }
 }
 
+function abrirModalObservacion(idAlumno) {
+  const item = document.querySelector(`.alumno-item[data-id="${idAlumno}"]`);
+  if (!item) return;
+  alumnoObservacionActiva = idAlumno;
+  document.getElementById('observacionAlumnoNombre').textContent = item.querySelector('.student-name')?.textContent.trim() || 'Alumno';
+  document.getElementById('btnGrabarObservacion').dataset.alumno = idAlumno;
+  const select = document.getElementById('observacionIndicador');
+  select.replaceChildren(new Option('Sin indicador (opcional)', ''), ...actividadesGlobales.map(act => new Option(act.nombre, act.id_actividad)));
+  document.getElementById('observacionTexto').value = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalObservacion')).show();
+}
+
 async function guardarObs(idAlumno, btn) {
-  const dd = document.querySelector(`.actividad-dropdown[data-alumno="${idAlumno}"]`);
-  const value = dd ? dd.dataset.selected : '';
-  const item = btn.closest('.alumno-item');
-  const input = item ? item.querySelector('.obs-input') : null;
+  const input = document.getElementById('observacionTexto');
+  const select = document.getElementById('observacionIndicador');
+  const value = select ? select.value : '';
   const nota = input ? input.value.trim() : '';
   if (!nota) {
       mostrarToast('Escribí primero qué observaste', 'warning');
@@ -253,12 +237,10 @@ async function guardarObs(idAlumno, btn) {
       nota_cruda: nota,
       tipo: 'texto'
     });
-    mostrarToast('Observación guardada');
+    mostrarToast('Observación guardada en la ficha del alumno.');
     if (input) input.value = '';
-    if (item) {
-      item.classList.add('observation-saved');
-      setTimeout(() => item.classList.remove('observation-saved'), 1200);
-    }
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalObservacion')).hide();
+    await cargarStats();
     cargarObsHoy();
   } catch (e) {
     mostrarToast('Error: ' + e.message, 'danger');
@@ -297,8 +279,9 @@ async function toggleRecord(btn) {
     return;
   }
   const idAlumno = parseInt(btn.dataset.alumno);
-  const dd = document.querySelector(`.actividad-dropdown[data-alumno="${idAlumno}"]`);
-  const idActividad = dd && dd.dataset.selected ? parseInt(dd.dataset.selected) : null;
+  const modalEl = document.getElementById('modalObservacion');
+  const select = modalEl?.classList.contains('show') ? document.getElementById('observacionIndicador') : null;
+  const idActividad = select && select.value ? parseInt(select.value) : null;
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -317,9 +300,10 @@ async function toggleRecord(btn) {
       btn.classList.remove('recording');
       btn.setAttribute('aria-pressed', 'false');
       btn.removeAttribute('aria-label');
-      const status = btn.closest('.observation-actions')?.querySelector('.recording-status');
+      const status = btn.closest('.observation-actions')?.querySelector('.recording-status') || btn.closest('.alumno-top')?.querySelector('.recording-status');
       if (status) status.textContent = '';
-       btn.innerHTML = '🎤 Grabar audio';
+      btn.innerHTML = btn.classList.contains('student-quick-record') ? '🎤' : '🎤 Grabar audio';
+      if (btn.classList.contains('student-quick-record')) btn.setAttribute('aria-label', `Grabar observación por voz de ${btn.closest('.alumno-item')?.querySelector('.student-name')?.textContent.trim() || 'este alumno'}`);
       stream.getTracks().forEach(t => t.stop());
       const duracion = (Date.now() - startTime) / 1000;
       if (duracion < 1) {
@@ -339,7 +323,7 @@ async function toggleRecord(btn) {
     mr.start();
     btn.classList.add('recording');
     btn.setAttribute('aria-pressed', 'true');
-    const status = btn.closest('.observation-actions')?.querySelector('.recording-status');
+    const status = btn.closest('.observation-actions')?.querySelector('.recording-status') || btn.closest('.alumno-top')?.querySelector('.recording-status');
     const updateRecordingStatus = () => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const clock = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
@@ -372,7 +356,10 @@ async function subirAudio(blob, idAlumno, idActividad) {
     if (r.texto && r.texto.startsWith('[Error:')) {
       mostrarToast('⚠️ ' + r.texto.replace(/^\[Error:\s*/, '').replace(/\]$/, ''), 'danger');
     } else {
-      mostrarToast('Audio transcrito: ' + (r.texto || '').substring(0, 80));
+      mostrarToast('Voz transcripta y guardada.');
+      const modalEl = document.getElementById('modalObservacion');
+      if (modalEl?.classList.contains('show')) bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+      await cargarStats();
     }
     cargarObsHoy();
   } catch (e) {
@@ -429,6 +416,20 @@ function ocultarCheckboxes() {
   document.querySelectorAll('.obs-checkbox').forEach(cb => { cb.style.display = 'none'; cb.checked = false; });
 }
 
+function actualizarRecorridoAlumno(tieneObservaciones, tieneInforme) {
+  const pasos = document.querySelectorAll('.student-journey .journey-step');
+  if (pasos.length !== 3) return;
+  pasos[0].classList.toggle('journey-step-done', tieneObservaciones);
+  pasos[0].classList.toggle('journey-step-current', !tieneObservaciones);
+  pasos[1].classList.toggle('journey-step-done', tieneInforme);
+  pasos[1].classList.toggle('journey-step-current', tieneObservaciones && !tieneInforme);
+  pasos[2].classList.toggle('journey-step-current', tieneInforme);
+  pasos.forEach(paso => {
+    if (paso.classList.contains('journey-step-current')) paso.setAttribute('aria-current', 'step');
+    else paso.removeAttribute('aria-current');
+  });
+}
+
 function actualizarContadorSel() {
   const checked = document.querySelectorAll('.obs-checkbox:checked').length;
   const btn = document.getElementById('btnEliminarSel');
@@ -476,18 +477,13 @@ async function cargarObsAlumno(idAlumno) {
     const data = await api('GET', `/api/alumno/${idAlumno}/detalle`);
     const obs = data.observaciones || [];
     const tieneInforme = Boolean(data.informe && data.informe.contenido_informe);
-    const pasos = document.querySelectorAll('.student-journey .journey-step');
-    if (pasos.length === 3) {
-      pasos[0].classList.toggle('journey-step-done', obs.length > 0);
-      pasos[0].classList.toggle('journey-step-current', obs.length === 0);
-      pasos[1].classList.toggle('journey-step-done', tieneInforme);
-      pasos[1].classList.toggle('journey-step-current', obs.length > 0 && !tieneInforme);
-      pasos[2].classList.toggle('journey-step-current', tieneInforme);
-      pasos.forEach((paso, index) => {
-        if (paso.classList.contains('journey-step-current')) paso.setAttribute('aria-current', 'step');
-        else paso.removeAttribute('aria-current');
-      });
-    }
+    const generateBtn = document.getElementById('btnGenerar');
+    const reportHint = document.getElementById('reportHint');
+    if (generateBtn) generateBtn.disabled = obs.length === 0;
+    if (reportHint) reportHint.textContent = obs.length
+      ? `Este borrador tomará ${obs.length} ${obs.length === 1 ? 'observación' : 'observaciones'} como punto de partida. Después podés editarlo.`
+      : 'Primero registrá una observación por voz o texto; luego vas a poder crear el informe.';
+    actualizarRecorridoAlumno(obs.length > 0, tieneInforme);
 
     // Mostrar informe si existe
     if (tieneInforme) {
@@ -503,15 +499,15 @@ async function cargarObsAlumno(idAlumno) {
         ic.innerHTML = `<div class="report-empty">
           <span class="report-empty-icon" aria-hidden="true">✦</span>
           <strong>El informe empieza con una observación</strong>
-          <span>Registrá un momento de este alumno desde el inicio.</span>
-          <a href="/dashboard" class="btn btn-outline-primary mt-2">Ir al aula</a>
+          <span>Dictá una nota con el micrófono o escribila. Infia la guarda en esta ficha.</span>
+          <a href="/dashboard?registrar=${idAlumno}" class="btn btn-outline-primary mt-2">Registrar primera observación</a>
         </div>`;
       }
     }
 
     // Mostrar observaciones
     if (!obs.length) {
-      c.innerHTML = '<div class="text-center py-5 text-muted"><p class="mb-2 fs-4">📋</p><p class="small">Este alumno no tiene indicadores registrados aún.</p></div>';
+      c.innerHTML = '<div class="text-center py-5 text-muted"><p class="mb-2 fs-4">📋</p><p class="small">Todavía no hay observaciones. Las notas de voz o escritas aparecerán acá.</p></div>';
       return;
     }
     const grupos = {};
@@ -642,7 +638,8 @@ async function generarInforme(idAlumno, auto = false) {
   try {
     const r = await api('POST', `/api/informe/${idAlumno}`, {});
     mostrarInforme(ic, r.contenido, idAlumno);
-    if (!auto) mostrarToast('Informe generado');
+    actualizarRecorridoAlumno(true, true);
+    if (!auto) mostrarToast('Informe generado. Revisalo antes de descargarlo.');
   } catch (e) {
     ic.innerHTML = `<div class="alert alert-danger py-2 small">Error: ${e.message}</div>`;
     if (!auto) mostrarToast('Error al generar informe: ' + e.message, 'danger');

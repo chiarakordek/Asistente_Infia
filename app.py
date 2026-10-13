@@ -1,4 +1,9 @@
 import os
+from dotenv import load_dotenv
+
+# Cargar la configuración local antes de leer secretos o inicializar la base.
+load_dotenv()
+
 import json
 import base64
 import binascii
@@ -860,6 +865,8 @@ def api_subir_audio():
     finally:
         if os.path.exists(path):
             os.remove(path)
+    if texto.startswith('[Error'):
+        return jsonify(error=texto.strip('[]')), 502
     try:
         guardar_observacion(id_alumno, id_actividad, texto, 'audio', ruta_audio=None,
                             id_usuario=session['user_id'], id_sala=sala_activa_id())
@@ -1245,11 +1252,31 @@ def api_export_csv():
 def api_generar_informe(id_alumno):
     if not any(a['id_alumno'] == id_alumno for a in obtener_alumnos(session['user_id'], sala_activa_id())):
         return jsonify(error='Alumno no encontrado en la sala activa.'), 404
-    contenido = formatear_informe_ia(id_alumno)
+    try:
+        contenido = formatear_informe_ia(id_alumno)
+    except RuntimeError as e:
+        app.logger.exception('Configuración incompleta al generar informe')
+        return jsonify(error=str(e)), 503
+    except Exception as e:
+        app.logger.exception('Falló la generación del informe para alumno %s', id_alumno)
+        status_code = getattr(e, 'status_code', None)
+        if status_code == 401:
+            mensaje = 'La clave de Groq no es válida. Revisá la variable GROQ_API_KEY.'
+        elif status_code == 429:
+            mensaje = 'Groq alcanzó el límite de solicitudes. Esperá un momento e intentá de nuevo.'
+        elif status_code == 400:
+            mensaje = 'Groq rechazó la solicitud del informe. Revisá la configuración del modelo.'
+        else:
+            mensaje = 'No pudimos conectar con el servicio de informes. Revisá la conexión e intentá nuevamente.'
+        return jsonify(error=mensaje), 502
     if contenido:
-        guardar_informe(id_alumno, 'Cuatrimestral', contenido)
+        try:
+            guardar_informe(id_alumno, 'Cuatrimestral', contenido)
+        except Exception:
+            app.logger.exception('El informe se generó, pero no pudo guardarse para alumno %s', id_alumno)
+            return jsonify(error='El informe se generó, pero no pudimos guardarlo. Intentá de nuevo.'), 500
         return jsonify(ok=True, contenido=contenido)
-    return jsonify(error='Error al generar informe'), 500
+    return jsonify(error='No se encontraron datos suficientes para generar el informe.'), 422
 
 @app.route('/api/informe/<int:id_alumno>/pdf')
 @login_required
