@@ -451,7 +451,11 @@ body {
   font-weight: 600;
 }
 
-@media (max-width: 575.98px) {
+.alumno-page {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom)) !important;
+}
+
+@media (max-width: 767.98px) {
   .report-actions { display: grid; grid-template-columns: 1fr; }
   .report-actions .btn { width: 100%; }
 }
