@@ -1,6 +1,7 @@
 import os
 from openai import OpenAI
 from src.config import GROQ_API_KEY
+from src.informe_utils import quitar_linea_faltas
 import psycopg2
 from psycopg2 import extras
 
@@ -66,6 +67,7 @@ def formatear_informe_ia(id_alumno):
         return None
 
     nombre, apellido, sala, turno, docente = alumno['nombre'], alumno['apellido'], alumno['sala'], alumno['turno'], alumno['docente']
+    nombre_completo = ' '.join(parte for parte in (nombre, apellido) if parte).strip()
 
     obs_por_area = {a: [] for a in AREAS_INFORME}
     areas_map = {
@@ -113,8 +115,6 @@ MATEMÁTICAS:
 CIENCIAS SOCIALES, CIENCIAS NATURALES Y TECNOLOGIA:
 [Párrafo de 4-6 líneas]
 
-FALTAS: 0
-
 REGLAS (obligatorio):
 - Cada párrafo 4-6 líneas
 - Lenguaje formal pero cálido, SIEMPRE EN POSITIVO
@@ -125,6 +125,7 @@ REGLAS (obligatorio):
 - NO incluyas nada más que el informe
 - **NUNCA menciones nombres de actividades, tareas, ejercicios o unidades**. No uses frases como "en la actividad", "realizó la actividad", "participó en la tarea", "en el ejercicio", etc. El informe debe hablar de LOGROS y PROCESOS del alumno, no de actividades puntuales.
 - **NUNca uses el formato "Actividad: X" ni listes actividades.** Sintetizá las observaciones en un texto fluido como el ejemplo de abajo.
+- No incluyas faltas, inasistencias ni asistencia.
 
 EJEMPLO DE ESTILO (modelo real de informes 2025):
 --- INICIO EJEMPLO ---
@@ -181,11 +182,11 @@ OBSERVACIONES DEL ALUMNO:
     if not texto:
         return None
     # Los datos identificatorios se incorporan localmente, no se envían al proveedor.
-    texto = texto.replace('ALUMNO', nombre)
+    texto = texto.replace('ALUMNO', nombre_completo)
     texto = texto.replace('SALA', sala or '')
     texto = texto.replace('DOCENTE', docente or '')
     texto = texto.replace('TURNO', turno or '')
-    return texto
+    return quitar_linea_faltas(texto)
 
 if __name__ == '__main__':
     print(formatear_informe_ia(1))

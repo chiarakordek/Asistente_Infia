@@ -1282,6 +1282,7 @@ def api_generar_informe(id_alumno):
 @login_required
 def api_informe_pdf(id_alumno):
     from src.pdf import informe_to_pdf
+    from src.informe_utils import quitar_linea_faltas
     alumnos = obtener_alumnos(session['user_id'], sala_activa_id())
     alumno = next((a for a in alumnos if a['id_alumno'] == id_alumno), None)
     if not alumno:
@@ -1289,7 +1290,8 @@ def api_informe_pdf(id_alumno):
     informe = obtener_informe_reciente(id_alumno)
     if not informe or not informe.get('contenido_informe'):
         return jsonify(error='No hay informe generado'), 404
-    pdf_bytes = informe_to_pdf(informe['contenido_informe'],
+    contenido = quitar_linea_faltas(informe['contenido_informe'])
+    pdf_bytes = informe_to_pdf(contenido,
                                f"{alumno['apellido']}, {alumno['nombre']}")
     return pdf_bytes, 200, {
         'Content-Type': 'application/pdf',
@@ -1299,10 +1301,11 @@ def api_informe_pdf(id_alumno):
 @app.route('/api/informe/<int:id_alumno>', methods=['PUT'])
 @login_required
 def api_actualizar_informe(id_alumno):
+    from src.informe_utils import quitar_linea_faltas
     if not any(a['id_alumno'] == id_alumno for a in obtener_alumnos(session['user_id'], sala_activa_id())):
         return jsonify(error='Alumno no encontrado en la sala activa.'), 404
     data = request.json
-    contenido = (data.get('contenido') or '').strip()
+    contenido = quitar_linea_faltas((data.get('contenido') or '').strip())
     if not contenido:
         return jsonify(error='El contenido no puede estar vacío'), 400
     actualizar_informe(id_alumno, contenido)

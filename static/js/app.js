@@ -487,7 +487,7 @@ async function cargarObsAlumno(idAlumno) {
 
     // Mostrar informe si existe
     if (tieneInforme) {
-      mostrarInforme(ic, data.informe.contenido_informe, idAlumno);
+      mostrarInforme(ic, data.informe.contenido_informe, idAlumno, data.nombre, data.apellido);
     } else {
       if (obs.length > 0) {
         ic.innerHTML = `<div class="report-empty">
@@ -549,7 +549,7 @@ async function cargarObsAlumno(idAlumno) {
 }
 
 // ─── INFORME (view / edit) ──────────────
-function mostrarInforme(container, contenido, idAlumno) {
+function mostrarInforme(container, contenido, idAlumno, nombre, apellido) {
   if (!contenido) {
     container.innerHTML = `<div class="text-center py-4 text-muted">
       <p class="small">No hay informe generado aún.</p>
@@ -557,6 +557,7 @@ function mostrarInforme(container, contenido, idAlumno) {
     return;
   }
 
+  contenido = completarNombreInforme(limpiarFaltasInforme(contenido), nombre, apellido);
   const html = contenido
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -564,30 +565,50 @@ function mostrarInforme(container, contenido, idAlumno) {
     .replace(/INFORMES EVALUATIVOS/g, '<div class="titulo">INFORMES EVALUATIVOS</div>')
     .replace(/INFORME 2025 - PRIMERA ETAPA/g, '<div class="subtitulo">INFORME 2025 - PRIMERA ETAPA</div>')
     .replace(/(IDENTIDAD Y CONVIVENCIA|LENGUAJE Y LITERATURA|MATEMÁTICAS|CIENCIAS SOCIALES, CIENCIAS NATURALES Y TECNOLOGIA):?/g, '<div class="area">$1</div>')
-    .replace(/FALTAS:.*/g, m => `<div class="faltas">${m}</div>`);
+    .replace(/\n{3,}/g, '\n\n');
 
   container.innerHTML = `
     <div class="informe-card" id="informeView">${html}</div>
-    <div class="d-flex gap-2 mt-2 justify-content-end">
-      <button class="btn btn-sm btn-outline-secondary" onclick="editarInforme(${idAlumno})" id="btnEditarInforme">✏️ Editar</button>
+    <div class="report-actions mt-3">
+      <button class="btn btn-outline-primary" type="button" onclick="editarInforme(${idAlumno})" id="btnEditarInforme">Editar informe</button>
+      <a class="btn btn-primary" href="/api/informe/${idAlumno}/pdf" id="btnDescargarInforme">Descargar PDF</a>
     </div>
   `;
   const generateBtn = document.getElementById('btnGenerar');
   if (generateBtn) generateBtn.textContent = 'Regenerar informe';
 }
 
+function limpiarFaltasInforme(contenido) {
+  return (contenido || '')
+    .replace(/^\s*(?:FALTAS|INASISTENCIAS|AUSENCIAS)\s*:[^\r\n]*(?:\r?\n|$)/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function completarNombreInforme(contenido, nombre, apellido) {
+  const nombreCompleto = [nombre, apellido].filter(Boolean).join(' ').trim();
+  if (!contenido || !nombre || !apellido || !nombreCompleto) return contenido;
+  const escaparRegex = texto => texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const nombreSolo = new RegExp(`(^|[^\\p{L}\\p{N}_])${escaparRegex(nombre)}(?![\\p{L}\\p{N}_]|\\s+${escaparRegex(apellido)}(?![\\p{L}\\p{N}_]))`, 'gu');
+  return contenido.replace(nombreSolo, (_, prefijo) => `${prefijo}${nombreCompleto}`);
+}
+
 async function editarInforme(idAlumno) {
   // Obtener el contenido actual desde el servidor para tener el texto limpio
   try {
     const data = await api('GET', `/api/alumno/${idAlumno}/detalle`);
-    let contenido = (data.informe && data.informe.contenido_informe) || '';
+    let contenido = completarNombreInforme(
+      limpiarFaltasInforme((data.informe && data.informe.contenido_informe) || ''),
+      data.nombre,
+      data.apellido
+    );
 
     const container = document.getElementById('informeContainer');
     container.innerHTML = `
       <textarea class="informe-edit" id="informeTextarea">${contenido.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
-      <div class="d-flex gap-2 mt-2 justify-content-end">
-        <button class="btn btn-sm btn-success" onclick="guardarInformeEdit(${idAlumno})">💾 Guardar</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="recargarInforme(${idAlumno})">Cancelar</button>
+      <div class="report-actions mt-3">
+        <button class="btn btn-primary" type="button" onclick="guardarInformeEdit(${idAlumno})">Guardar cambios</button>
+        <button class="btn btn-outline-secondary" type="button" onclick="recargarInforme(${idAlumno})">Cancelar</button>
       </div>
     `;
   } catch (e) {
@@ -617,7 +638,7 @@ async function recargarInforme(idAlumno) {
   try {
     const data = await api('GET', `/api/alumno/${idAlumno}/detalle`);
     if (data.informe && data.informe.contenido_informe) {
-      mostrarInforme(ic, data.informe.contenido_informe, idAlumno);
+      mostrarInforme(ic, data.informe.contenido_informe, idAlumno, data.nombre, data.apellido);
     } else {
       ic.innerHTML = `<div class="text-center py-4 text-muted">
         <p class="small">No hay informe generado aún.</p>

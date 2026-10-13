@@ -437,10 +437,23 @@ body {
   font-size: 0.88rem;
 }
 
-.informe-card .faltas {
-  font-weight:400;
-  margin-top: 0.85rem;
-  color: var(--text);
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .65rem;
+}
+
+.report-actions .btn {
+  min-height: 44px;
+  padding-inline: 1.1rem;
+  border-radius: 14px;
+  font-weight: 600;
+}
+
+@media (max-width: 575.98px) {
+  .report-actions { display: grid; grid-template-columns: 1fr; }
+  .report-actions .btn { width: 100%; }
 }
 
 .informe-card .alumno-nombre {
