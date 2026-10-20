@@ -178,10 +178,10 @@ async function cargarAlumnos() {
       return;
     }
     c.innerHTML = `
-      <div class="d-flex align-items-center gap-2 mb-2 ${alumnos.length ? '' : 'd-none'}" id="bulkBar">
-        <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)">
-        <span class="text-muted small">Seleccionar todos</span>
-        <button class="btn btn-sm btn-danger ms-auto" onclick="eliminarSeleccionados()">Eliminar seleccionados</button>
+      <div class="bulk-selection-bar" id="bulkBar">
+        <label class="bulk-select-all" for="selectAll"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"><span>Seleccionar todos</span></label>
+        <span class="bulk-selected-count" id="bulkSelectedCount" aria-live="polite"></span>
+        <button class="btn btn-sm btn-danger bulk-delete-btn d-none" id="bulkDeleteButton" onclick="eliminarSeleccionados()">Eliminar seleccionados</button>
       </div>
     ` + alumnos.map(a => `
        <div class="alumno-item" data-id="${a.id_alumno}">
@@ -704,14 +704,23 @@ async function cargarObsHoy() {
 // ─── CRUD ALUMNOS ───────────────────────
 
 function toggleSelectAll(el) {
-  document.querySelectorAll('.alumno-check').forEach(cb => cb.checked = el.checked);
+  document.querySelectorAll('#alumnosContainer .alumno-item:not([hidden]) .alumno-check').forEach(cb => cb.checked = el.checked);
   actualizarBulkBar();
 }
 
 function actualizarBulkBar() {
-  const checked = document.querySelectorAll('.alumno-check:checked');
-  const bar = document.getElementById('bulkBar');
-  if (bar) bar.classList.toggle('d-none', checked.length === 0);
+  const checkboxes = [...document.querySelectorAll('#alumnosContainer .alumno-item:not([hidden]) .alumno-check')];
+  const checked = document.querySelectorAll('#alumnosContainer .alumno-check:checked');
+  const selectAll = document.getElementById('selectAll');
+  const deleteButton = document.getElementById('bulkDeleteButton');
+  const count = document.getElementById('bulkSelectedCount');
+  if (selectAll) {
+    selectAll.checked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+    selectAll.indeterminate = checkboxes.some(cb => cb.checked) && !selectAll.checked;
+    selectAll.disabled = checkboxes.length === 0;
+  }
+  if (deleteButton) deleteButton.classList.toggle('d-none', checked.length === 0);
+  if (count) count.textContent = checked.length ? `${checked.length} seleccionado${checked.length === 1 ? '' : 's'}` : '';
 }
 
 async function eliminarSeleccionados() {
@@ -897,16 +906,111 @@ async function eliminarActividad(id) {
 // ─── BOTÓN DE SOPORTE FLOTANTE ───────────
 (function () {
   const path = window.location.pathname;
-  if (!document.querySelector('.navbar')) return;
-  if (path.startsWith('/soporte') || path.startsWith('/admin')) return;
+  if (!document.querySelector('.navbar') && !document.body.classList.contains('support-enabled')) return;
+  if (path.startsWith('/admin')) return;
 
-  const btn = document.createElement('a');
+  const btn = document.createElement('button');
   btn.className = 'soporte-btn';
-  btn.href = '/soporte';
+  btn.type = 'button';
   btn.title = 'Abrir ayuda y soporte';
   btn.setAttribute('aria-label', 'Abrir ayuda y soporte');
+  btn.setAttribute('aria-expanded', 'false');
+  btn.setAttribute('aria-controls', 'soportePanel');
   btn.innerHTML = '<span class="soporte-avatar-mini" aria-hidden="true">👩‍🏫</span><span class="soporte-label">¿Necesitás ayuda?</span><span class="soporte-badge d-none"></span>';
   document.body.appendChild(btn);
+
+  const panel = document.createElement('section');
+  panel.className = 'soporte-panel';
+  panel.id = 'soportePanel';
+  panel.setAttribute('aria-label', 'Chat de soporte');
+  panel.setAttribute('aria-hidden', 'true');
+  panel.innerHTML = '<header class="soporte-panel-header"><span class="soporte-avatar-mini" aria-hidden="true">👩‍🏫</span><div><strong>Ayuda y soporte</strong><small>Escribinos tu consulta</small></div><button type="button" class="soporte-close" aria-label="Cerrar chat">×</button></header><div class="soporte-panel-messages" id="soporteWidgetMsgs" aria-live="polite"><div class="chat-vacio">Cargando conversación…</div></div><form class="soporte-panel-form" id="soporteWidgetForm"><textarea id="soporteWidgetText" rows="1" maxlength="1000" placeholder="Escribí tu consulta…" aria-label="Escribí tu consulta"></textarea><button type="submit" aria-label="Enviar mensaje">➤</button></form>';
+  document.body.appendChild(panel);
+  let open = false;
+  let miId = null;
+  let ultimoMensaje = 0;
+  let conversacionCargada = false;
+
+  function cerrarPanel() {
+    open = false;
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  function renderConversacion(mensajes) {
+    const cont = panel.querySelector('#soporteWidgetMsgs');
+    cont.replaceChildren();
+    if (!mensajes.length) {
+      const empty = document.createElement('div');
+      empty.className = 'chat-vacio';
+      empty.textContent = '¡Hola! Dejanos tu consulta y te ayudamos.';
+      cont.appendChild(empty);
+    }
+    mensajes.forEach(m => {
+      const bubble = document.createElement('div');
+      bubble.className = `chat-burbuja ${m.id_usuario === miId ? 'propia' : 'ajena'}`;
+      const text = document.createElement('div');
+      text.className = 'chat-texto';
+      text.textContent = m.texto;
+      const time = document.createElement('div');
+      time.className = 'chat-hora';
+      time.textContent = m.fecha;
+      bubble.append(text, time);
+      cont.appendChild(bubble);
+    });
+    cont.scrollTop = cont.scrollHeight;
+    ultimoMensaje = mensajes.length ? mensajes[mensajes.length - 1].id : 0;
+  }
+  async function cargarConversacion() {
+    try {
+      const data = await api('GET', '/api/soporte');
+      miId = data.mi_id;
+      const mensajes = data.mensajes || [];
+      const idUltimo = mensajes.length ? mensajes[mensajes.length - 1].id : 0;
+      if (!conversacionCargada || idUltimo !== ultimoMensaje) renderConversacion(mensajes);
+      conversacionCargada = true;
+      actualizarBadge();
+    } catch (e) {
+      panel.querySelector('#soporteWidgetMsgs').innerHTML = '<div class="chat-vacio">No se pudo cargar el chat. Probá de nuevo.</div>';
+    }
+  }
+  btn.addEventListener('click', async () => {
+    open = !open;
+    panel.classList.toggle('open', open);
+    panel.setAttribute('aria-hidden', String(!open));
+    btn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      if (!conversacionCargada) await cargarConversacion();
+      panel.querySelector('#soporteWidgetText').focus();
+    }
+  });
+  panel.querySelector('.soporte-close').addEventListener('click', cerrarPanel);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && open) cerrarPanel(); });
+  panel.querySelector('#soporteWidgetForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const input = panel.querySelector('#soporteWidgetText');
+    const text = input.value.trim();
+    if (!text) return;
+    const send = panel.querySelector('button[type="submit"]');
+    send.disabled = true;
+    try {
+      await api('POST', '/api/soporte/mensaje', { texto: text });
+      input.value = '';
+      input.style.height = 'auto';
+      await cargarConversacion();
+    } catch (e) { mostrarToast(e.message, 'danger'); }
+    finally { send.disabled = false; input.focus(); }
+  });
+  panel.querySelector('#soporteWidgetText').addEventListener('input', e => {
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
+  });
+  panel.querySelector('#soporteWidgetText').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      panel.querySelector('#soporteWidgetForm').requestSubmit();
+    }
+  });
 
   async function actualizarBadge() {
     try {
@@ -922,8 +1026,15 @@ async function eliminarActividad(id) {
       }
     } catch (e) {}
   }
+  if (new URLSearchParams(window.location.search).get('soporte') === '1') {
+    btn.click();
+    history.replaceState(null, '', window.location.pathname);
+  }
   actualizarBadge();
-  setInterval(actualizarBadge, 15000);
+  setInterval(() => {
+    actualizarBadge();
+    if (open) cargarConversacion();
+  }, 15000);
 })();
 
 // ─── SERVICE WORKER & INSTALL (PWA) ──────

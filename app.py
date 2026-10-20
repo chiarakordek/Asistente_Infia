@@ -467,7 +467,7 @@ def _formatear_mensajes(mensajes):
 @app.route('/soporte')
 @login_required
 def soporte_page():
-    return render_template('soporte.html', user=obtener_usuario_por_id(session['user_id']))
+    return redirect('/dashboard?soporte=1')
 
 @app.route('/api/soporte', methods=['GET'])
 @login_required

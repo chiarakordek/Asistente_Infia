@@ -5,7 +5,7 @@
   <title>Infia - Mis salas</title>
   <link rel="manifest" href="/manifest.json"><link rel="icon" type="image/png" href="/static/icons/iconoinfia.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=25">
+  <link rel="stylesheet" href="/static/css/styles.css?v=31">
 </head>
 <body>
   {% set active_page = 'salas' %}{% include '_nav.html' %}
@@ -15,7 +15,7 @@
     <section id="roomsGrid" class="rooms-grid" aria-live="polite"></section>
   </main>
   <div class="modal fade" id="roomModal" tabindex="-1" aria-labelledby="roomModalTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form id="roomForm"><div class="modal-header"><div><p class="eyebrow mb-1">TU ESPACIO DE TRABAJO</p><h2 class="modal-title fs-5" id="roomModalTitle">Agregar sala</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div><div class="modal-body"><input type="hidden" id="roomId"><div class="mb-3"><label for="roomName" class="form-label">Nombre para identificarla</label><input id="roomName" class="form-control" maxlength="80" placeholder="Por ejemplo: Sala Roja" required><div class="form-text">Este nombre aparece en el selector de salas.</div></div><div class="row g-3"><div class="col-sm-7"><label for="roomClass" class="form-label">Sala / edad</label><select id="roomClass" class="form-select" required>{% for anio in [3,4,5] %}{% for letra in ['A','B','C','D'] %}<option>{{ anio }} Años {{ letra }}</option>{% endfor %}{% endfor %}</select></div><div class="col-sm-5"><label for="roomShift" class="form-label">Turno</label><select id="roomShift" class="form-select"><option>Mañana</option><option>Tarde</option></select></div></div><div id="roomFormError" class="small text-danger mt-3 d-none"></div></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" id="saveRoomButton">Guardar sala</button></div></form></div></div></div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script src="/static/js/app.js?v=20"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script src="/static/js/app.js?v=24"></script>
   <script>
     const roomModal = new bootstrap.Modal(document.getElementById('roomModal'));
     async function cargarSalas() {
