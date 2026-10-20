@@ -178,7 +178,7 @@ async function cargarAlumnos() {
       return;
     }
     c.innerHTML = `
-      <div class="bulk-selection-bar" id="bulkBar">
+      <div class="bulk-selection-bar d-none" id="bulkBar">
         <label class="bulk-select-all" for="selectAll"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"><span>Seleccionar todos</span></label>
         <span class="bulk-selected-count" id="bulkSelectedCount" aria-live="polite"></span>
         <button class="btn btn-sm btn-danger bulk-delete-btn d-none" id="bulkDeleteButton" onclick="eliminarSeleccionados()">Eliminar seleccionados</button>
@@ -712,8 +712,10 @@ function actualizarBulkBar() {
   const checkboxes = [...document.querySelectorAll('#alumnosContainer .alumno-item:not([hidden]) .alumno-check')];
   const checked = document.querySelectorAll('#alumnosContainer .alumno-check:checked');
   const selectAll = document.getElementById('selectAll');
+  const bar = document.getElementById('bulkBar');
   const deleteButton = document.getElementById('bulkDeleteButton');
   const count = document.getElementById('bulkSelectedCount');
+  if (bar) bar.classList.toggle('d-none', checked.length === 0);
   if (selectAll) {
     selectAll.checked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
     selectAll.indeterminate = checkboxes.some(cb => cb.checked) && !selectAll.checked;
