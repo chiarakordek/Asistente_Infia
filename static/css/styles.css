@@ -1582,18 +1582,23 @@ body { background: var(--bg); color: var(--text); }
 .student-recording-status { flex: 1 0 100%; padding-left: 2.8rem; color: #746e85; font-size: .78rem; }
 .student-recording-status:empty { display: none; }
 @keyframes recording-pulse { 50% { box-shadow: 0 0 0 6px rgba(216,80,100,.15); } }
-.workflow-guide { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(0, 2fr); align-items: center; gap: 1rem; padding: .9rem 1.1rem; border: 1px solid #e6e2f5; border-radius: 18px; background: #fff; box-shadow: 0 6px 20px rgba(48,39,115,.04); }
-.workflow-guide-heading { display: flex; align-items: center; gap: .7rem; }
-.workflow-guide-mark { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 38px; border-radius: 12px; background: #efedff; color: #5c51cb; }
-.workflow-guide-heading strong, .workflow-guide-heading small { display: block; }
-.workflow-guide-heading strong { color: #38325a; font-size: .9rem; }
-.workflow-guide-heading small { margin-top: .12rem; color: #817b95; font-size: .76rem; }
-.workflow-guide-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; padding: 0; margin: 0; list-style: none; }
-.workflow-guide-steps li { display: flex; align-items: flex-start; gap: .55rem; min-width: 0; }
-.workflow-guide-steps li > span { display: grid; place-items: center; width: 25px; height: 25px; flex: 0 0 25px; border-radius: 50%; background: #f0eeff; color: #5b50c6; font-size: .74rem; font-weight: 800; }
-.workflow-guide-steps strong, .workflow-guide-steps small { display: block; }
-.workflow-guide-steps strong { color: #393454; font-size: .8rem; }
-.workflow-guide-steps small { margin-top: .12rem; color: #79748a; font-size: .7rem; line-height: 1.35; }
+.section-title-help { display: flex; align-items: center; gap: .55rem; }
+.workflow-help { position: relative; display: inline-flex; align-items: center; }
+.workflow-help-trigger { display: grid; place-items: center; width: 27px; height: 27px; padding: 0; border: 1px solid #d9d4f7; border-radius: 50%; background: #f5f3ff; color: #5a4fc4; font-size: .88rem; font-weight: 800; cursor: pointer; transition: background .18s ease, color .18s ease, box-shadow .18s ease; }
+.workflow-help-trigger:hover, .workflow-help-trigger[aria-expanded="true"] { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(73,55,212,.24); }
+.workflow-help-trigger:focus-visible, .workflow-help-close:focus-visible { outline: 3px solid rgba(99,102,241,.3); outline-offset: 2px; }
+.workflow-help-popover { position: absolute; z-index: 1040; top: calc(100% + .65rem); left: 0; width: min(350px, calc(100vw - 2rem)); padding: 1rem; border: 1px solid #e5e0fa; border-radius: 16px; background: #fff; box-shadow: 0 16px 44px rgba(39,31,91,.17); animation: help-pop-in .16s ease-out; }
+.workflow-help-popover[hidden] { display: none; }
+.workflow-help-popover::before { position: absolute; top: -7px; left: 9px; width: 12px; height: 12px; border-top: 1px solid #e5e0fa; border-left: 1px solid #e5e0fa; background: #fff; content: ""; transform: rotate(45deg); }
+.workflow-help-popover-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: .8rem; color: #393454; font-size: .91rem; font-weight: 750; }
+.workflow-help-close { display: grid; place-items: center; width: 27px; height: 27px; padding: 0; border: 0; border-radius: 50%; background: #f4f2fb; color: #716b86; font-size: 1.2rem; line-height: 1; cursor: pointer; }
+.workflow-help-steps { display: grid; gap: .75rem; padding: 0; margin: 0; list-style: none; }
+.workflow-help-steps li { display: flex; align-items: flex-start; gap: .65rem; }
+.workflow-help-steps li > span { display: grid; place-items: center; width: 25px; height: 25px; flex: 0 0 25px; border-radius: 50%; background: #f0eeff; color: #5b50c6; font-size: .74rem; font-weight: 800; }
+.workflow-help-steps strong, .workflow-help-steps small { display: block; }
+.workflow-help-steps strong { color: #393454; font-size: .8rem; }
+.workflow-help-steps small { margin-top: .12rem; color: #79748a; font-size: .75rem; line-height: 1.4; }
+@keyframes help-pop-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .report-heading > .btn:disabled { color: #817c91; border-color: #e2dfeb; background: #efedf4; opacity: 1; cursor: not-allowed; }
 .observation-modal { overflow: hidden; border: 0; border-radius: 22px; box-shadow: 0 22px 70px rgba(42,34,87,.2); }
 .observation-modal .modal-header { padding: 1.25rem 1.35rem .85rem; border-bottom: 0; }
@@ -1603,10 +1608,7 @@ body { background: var(--bg); color: var(--text); }
 .planning-tab { position: relative; }
 .planning-tab .tooltip-inner { max-width: 240px; padding: .55rem .7rem; border-radius: 10px; background: #332c59; font-size: .78rem; line-height: 1.4; }
 @media (max-width: 576px) {
-  .workflow-guide { grid-template-columns: 1fr; gap: .75rem; padding: .9rem; }
-  .workflow-guide-steps { grid-template-columns: 1fr; gap: .6rem; }
-  .workflow-guide-steps li { align-items: center; }
-  .workflow-guide-steps small { font-size: .74rem; }
+  .workflow-help-popover { width: min(340px, calc(100vw - 2rem)); }
   .alumno-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .65rem; }
   .student-add-observation { grid-column: 2 / 4; justify-self: start; }
   .student-recording-status { grid-column: 2 / 4; padding-left: 0; }
