@@ -1549,11 +1549,10 @@ body { background: var(--bg); color: var(--text); }
   #panelIndicadores .d-flex.gap-2.mt-3 { flex-direction: column; }
   #panelIndicadores .d-flex.gap-2.mt-3 .btn { min-height: 44px; }
 }
-.planning-context-note { display: flex; align-items: flex-start; gap: .75rem; padding: .9rem 1rem; border: 1px solid #e7e3fa; border-radius: 15px; background: #faf9ff; color: #514c68; }
-.planning-context-note > span:last-child { display: grid; gap: .15rem; }
-.planning-context-note strong { color: #393366; font-size: .87rem; }
-.planning-context-note small { color: #77728e; line-height: 1.45; }
-.planning-context-spark { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 10px; background: #efedff; color: #6358d7; }
+.indicator-unit-label { display: flex; align-items: center; gap: .45rem; }
+.indicator-unit-label .form-label { margin-bottom: .5rem; }
+.workflow-help-content { color: #625d73; font-size: .84rem; line-height: 1.5; }
+.workflow-help-content p { margin: 0; }
 
 @media (max-width: 520px) { .planning-tabs { gap: .2rem; } .planning-tab { justify-content: center; gap: .35rem; padding: .65rem .25rem; } .planning-tab-icon { width: 29px; height: 29px; flex-basis: 29px; font-size: 1rem; } .planning-tab strong { font-size: .72rem; } .planning-tab small { display: none; } .planning-area-form .d-flex { align-items: stretch; flex-direction: column; } .planning-area-form .btn { align-self: flex-start; min-width: 110px; } }
 
