@@ -103,6 +103,7 @@ from src.db import (
     reactivar_usuario, enviar_comunicado,
     solicitar_baja_usuario, cancelar_baja_usuario,
     eliminar_usuario_completamente, obtener_bajas_vencidas,
+    marcar_tutorial_completado,
 )
 from src.suscripcion import (
     estado_cuenta, dias_restantes, crear_preapproval,
@@ -268,7 +269,19 @@ def terminos_page():
 @login_required
 def dashboard_page():
     user = obtener_usuario_por_id(session['user_id'])
-    return render_template('dashboard.html', user=user, areas=areas_para(session['user_id'], sala_activa_id()))
+    repetir_tutorial = request.args.get('tutorial') == '1'
+    tutorial_automatico = repetir_tutorial or not bool(user.get('tutorial_completado'))
+    if request.args.get('registrar'):
+        tutorial_automatico = repetir_tutorial
+    return render_template('dashboard.html', user=user,
+                           areas=areas_para(session['user_id'], sala_activa_id()),
+                           tutorial_automatico=tutorial_automatico)
+
+@app.route('/api/tutorial/completar', methods=['POST'])
+@login_required
+def api_tutorial_completar():
+    marcar_tutorial_completado(session['user_id'])
+    return jsonify(ok=True)
 
 @app.route('/planificacion')
 @login_required

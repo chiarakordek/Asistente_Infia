@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="/static/icons/iconoinfia.png">
   <link rel="icon" type="image/png" href="/static/icons/iconoinfia.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=40">
+  <link rel="stylesheet" href="/static/css/styles.css?v=41">
 </head>
 <body>
   {% set active_page = 'dashboard' %}{% include '_nav.html' %}
@@ -37,7 +37,7 @@
     <!-- Alumnos tab -->
     <div id="tabAlumnos" role="tabpanel" aria-labelledby="tabAlumnosButton" tabindex="0">
         <div class="section-header" id="alumnosSection">
-          <div><p class="eyebrow section-eyebrow mb-1">REGISTRO DIARIO</p><div class="section-title-help"><h2 class="page-title">Mis alumnos</h2><div class="workflow-help"><button type="button" class="help-trigger workflow-help-trigger" id="workflowHelpTrigger" aria-label="Cómo usar Infia" aria-expanded="false" aria-controls="workflowHelpPopover">?</button><div class="workflow-help-popover" id="workflowHelpPopover" hidden><div class="workflow-help-popover-title"><span>Tu recorrido en Infia</span><button type="button" class="workflow-help-close" aria-label="Cerrar ayuda">×</button></div><ol class="workflow-help-steps"><li><span>1</span><div><strong>Registrá</strong><small>Dictá con el micrófono o escribí una observación.</small></div></li><li><span>2</span><div><strong>Revisá</strong><small>Abrí el nombre para consultar lo guardado del alumno.</small></div></li><li><span>3</span><div><strong>Prepará el informe</strong><small>Generá un borrador, editá y descargá desde su ficha.</small></div></li></ol></div></div></div><p class="page-lead">Dictá con el micrófono para registrar en el momento o tocá + para escribir.</p></div>
+          <div><p class="eyebrow section-eyebrow mb-1">REGISTRO DIARIO</p><h2 class="page-title">Mis alumnos</h2><p class="page-lead">Dictá con el micrófono para registrar en el momento o tocá + para escribir.</p></div>
         <div class="d-flex gap-1">
           <button class="btn btn-sm btn-outline-primary" onclick="cargarVarios()">Agregar varios</button>
           <button class="btn btn-sm btn-primary" onclick="mostrarModalAlumno()">Agregar alumno</button>
@@ -122,8 +122,22 @@
     </div>
   </div>
 
+  <div class="infia-tour" id="infiaTour" data-auto="{{ 'true' if tutorial_automatico else 'false' }}" data-user-id="{{ user.id_usuario }}" hidden>
+    <svg class="infia-tour-scrim" id="tourScrim" aria-hidden="true" focusable="false">
+      <defs><mask id="tourMask" maskUnits="userSpaceOnUse"><rect id="tourMaskBase" fill="white"></rect><rect id="tourMaskHole" fill="black" rx="14"></rect></mask></defs>
+      <rect id="tourMaskShade" fill="rgba(30,26,52,.62)" mask="url(#tourMask)"></rect>
+    </svg>
+    <section class="infia-tour-card" id="tourCard" role="dialog" aria-modal="true" aria-labelledby="tourTitle" aria-describedby="tourDescription" tabindex="-1">
+      <div class="infia-tour-heading"><span class="infia-tour-mark" aria-hidden="true">✦</span><span class="infia-tour-progress-label" id="tourProgressLabel">PASO 1 DE 5</span><button type="button" class="infia-tour-skip" id="tourSkip">Saltar</button></div>
+      <div class="infia-tour-progress" aria-hidden="true"><span id="tourProgressBar"></span></div>
+      <h2 id="tourTitle" aria-live="polite"></h2>
+      <p id="tourDescription"></p>
+      <footer><span class="infia-tour-hint">Recorrido breve · podés repetirlo desde tu perfil</span><button type="button" class="btn btn-primary" id="tourNext">Siguiente <span aria-hidden="true">→</span></button></footer>
+    </section>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/static/js/app.js?v=31"></script>
+  <script src="/static/js/app.js?v=32"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       cargarDashboard().then(() => {
@@ -132,6 +146,7 @@
           abrirModalObservacion(alumnoId);
           history.replaceState({}, '', window.location.pathname);
         }
+        document.dispatchEvent(new Event('infia:dashboard-ready'));
       });
       document.getElementById('studentSearch').addEventListener('input', filtrarAlumnos);
       document.querySelectorAll('#dashboardTabs .nav-link').forEach(tab => {
@@ -237,5 +252,6 @@
       } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
     }
   </script>
+  <script src="/static/js/infia-tour.js?v=1"></script>
 </body>
 </html>

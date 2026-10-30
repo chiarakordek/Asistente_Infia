@@ -85,6 +85,10 @@ def inicializar_bd():
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_solicitada_en TIMESTAMP")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS motivo_baja TEXT")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar_data TEXT")
+        # Las cuentas ya existentes conocen la app; las cuentas nuevas sí
+        # reciben el recorrido automáticamente al entrar por primera vez.
+        execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tutorial_completado BOOLEAN NOT NULL DEFAULT TRUE")
+        execute(conn, "ALTER TABLE usuarios ALTER COLUMN tutorial_completado SET DEFAULT FALSE")
 
         execute(conn, '''CREATE TABLE IF NOT EXISTS app_config (
             clave TEXT PRIMARY KEY,
@@ -274,6 +278,14 @@ def obtener_usuario_por_id(id_usuario):
     conn = conectar()
     try:
         return fetch_one(conn, 'SELECT * FROM usuarios WHERE id_usuario = %s', (id_usuario,))
+    finally:
+        conn.close()
+
+def marcar_tutorial_completado(id_usuario):
+    conn = conectar()
+    try:
+        execute(conn, 'UPDATE usuarios SET tutorial_completado = TRUE WHERE id_usuario = %s', (id_usuario,))
+        conn.commit()
     finally:
         conn.close()
 
