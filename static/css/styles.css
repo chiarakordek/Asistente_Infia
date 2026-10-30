@@ -1618,6 +1618,90 @@ body { background: var(--bg); color: var(--text); }
 }
 .legal-document > .d-flex a:first-child { color: #40358f; font-size: .92rem; font-weight: 800; }
 .legal-document > .d-flex a:last-child { color: #6257ce; }
+
+/* Daily-use polish: clear next steps, thumb-friendly controls and accessible states. */
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: .55rem;
+  max-width: 720px;
+  padding: clamp(1.5rem, 5vw, 2.5rem) clamp(1rem, 4vw, 2rem);
+  margin: 1rem auto;
+  border: 1px dashed #d8d4ef;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #fff, #faf9ff);
+  color: #625d73;
+  text-align: center;
+}
+.empty-state strong { color: #302b55; font-size: 1.02rem; }
+.empty-state > span:not(.empty-state-icon) { max-width: 48ch; line-height: 1.55; }
+.empty-state .btn { margin-top: .25rem; }
+.empty-state .btn-link { min-height: 40px; text-decoration: none; }
+.roster-empty { min-height: 290px; align-content: center; }
+.empty-state-icon { margin-bottom: .2rem; }
+.recording-clock { display: inline-block; min-width: 3.2em; margin-left: .35rem; font-variant-numeric: tabular-nums; font-weight: 800; color: #a33e4f; }
+.student-quick-record { min-width: 44px; min-height: 44px; }
+.student-add-observation { min-height: 44px; }
+.alumno-check, #selectAll, .obs-checkbox { width: 1.25rem; height: 1.25rem; accent-color: var(--primary); cursor: pointer; }
+.nav-link-item, .nav-room-switcher a, .help-trigger, .workflow-help-close { min-height: 44px; }
+.help-trigger { min-width: 44px; }
+.workflow-help-trigger { width: 32px; height: 32px; min-height: 32px; }
+.workflow-help-close { min-width: 44px; min-height: 44px; }
+.student-search .form-control { min-height: 44px; }
+.nav-tabs .nav-link { min-height: 44px; }
+.nav-tabs .nav-link:focus-visible, .planning-tab:focus-visible, .bulk-select-all:focus-within {
+  outline: 3px solid #5145bb;
+  outline-offset: 3px;
+}
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 3px solid #5145bb;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px #fff;
+}
+.btn-primary:focus-visible, .btn-outline-primary:focus-visible, .welcome-action:focus-visible {
+  outline-color: #34278f;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 5px rgba(81,69,187,.26);
+}
+.student-recording-status { color: #51445f; }
+.today-empty { margin-block: .25rem; }
+.student-observations-empty { margin-block: .25rem; }
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:not(:disabled):hover, .btn-outline-primary:hover,
+  .student-quick-record:hover, .student-add-observation:hover { transform: translateY(-1px); }
+}
+@media (max-width: 576px) {
+  .app-page { padding-inline: .75rem !important; }
+  .student-search { min-height: 54px; }
+  .alumno-item { min-width: 0; }
+  .alumno-top { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: .5rem; }
+  .alumno-top > .alumno-check { justify-self: center; }
+  .alumno-top .alumno-nombre { min-height: 44px; gap: .45rem; }
+  .student-name { overflow-wrap: anywhere; line-height: 1.25; }
+  .student-add-observation { grid-column: 2 / 4; justify-self: stretch; }
+  .student-recording-status { grid-column: 1 / -1; padding: .35rem .5rem 0; }
+  .bulk-selection-bar { position: sticky; top: .35rem; z-index: 3; background: #fff; }
+  .student-journey { overflow: hidden; }
+  .empty-state { padding: 1.35rem 1rem; border-radius: 16px; }
+  .empty-state .btn:not(.btn-link) { width: 100%; min-height: 48px; }
+  .observation-modal .modal-footer { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+  .observation-modal .modal-footer .btn-record { min-height: 48px; }
+}
+@media (max-width: 760px) {
+  .btn { min-height: 44px; }
+  .btn-sm { --bs-btn-padding-y: .45rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+  .alumno-item, .card, .actividad-card, .obs-item, .account-menu-item,
+  .btn:hover, .planning-tab, .room-card:hover { transform: none !important; }
+}
 .legal-title { color: #282442; font-size: 1.42rem; font-weight: 800; letter-spacing: -.035em; }
 .legal-updated { margin: .15rem 0 1rem; color: #858197; font-size: .73rem; }
 .legal-document p { margin: .45rem 0; }

@@ -170,10 +170,12 @@ async function cargarAlumnos() {
     if (!alumnos.length) {
       const count = document.getElementById('studentCount');
       if (count) count.textContent = '0 alumnos';
-      c.innerHTML = `<div class="text-center py-5 text-muted">
-        <p class="mb-2 fs-4">👩‍🏫</p>
-        <p class="small">Todavía no cargaste alumnos. Agregá tu grupo para empezar a registrar observaciones.</p>
-        <button class="btn btn-primary btn-sm" type="button" onclick="mostrarModalAlumno()">Agregar primer alumno</button>
+      c.innerHTML = `<div class="empty-state roster-empty">
+        <span class="empty-state-icon" aria-hidden="true">👋</span>
+        <strong>Tu sala empieza acá</strong>
+        <span>Agregá a tus alumnos y vas a poder registrar observaciones por voz o escribirlas en el momento.</span>
+        <button class="btn btn-primary" type="button" onclick="mostrarModalAlumno()">Agregar primer alumno</button>
+        <button class="btn btn-link" type="button" onclick="cargarVarios()">¿Tenés una lista? Cargá varios</button>
       </div>`;
       return;
     }
@@ -316,7 +318,8 @@ async function toggleRecord(btn) {
         return;
       }
       if (blob.size > 0) {
-        await subirAudio(blob, idAlumno, idActividad);
+        if (status) status.textContent = 'Procesando el audio y guardando la observación…';
+        await subirAudio(blob, idAlumno, idActividad, status);
       }
     };
 
@@ -327,7 +330,10 @@ async function toggleRecord(btn) {
     const updateRecordingStatus = () => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const clock = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
-      if (status) status.textContent = `Grabando ${clock} · tocá para detener`;
+      if (status) {
+        if (!status.querySelector('.recording-clock')) status.innerHTML = 'Grabación iniciada · tocá el micrófono para detener <span class="recording-clock" aria-live="off"></span>';
+        status.querySelector('.recording-clock').textContent = clock;
+      }
       btn.setAttribute('aria-label', `Detener grabación, ${clock}`);
     };
     updateRecordingStatus();
@@ -345,7 +351,7 @@ function detenerGrabacion() {
   }
 }
 
-async function subirAudio(blob, idAlumno, idActividad) {
+async function subirAudio(blob, idAlumno, idActividad, status = null) {
   const ext = extDesdeMime(blob.type);
   const fd = new FormData();
   fd.append('audio', blob, `grabacion_${Date.now()}.${ext}`);
@@ -357,13 +363,17 @@ async function subirAudio(blob, idAlumno, idActividad) {
       mostrarToast('⚠️ ' + r.texto.replace(/^\[Error:\s*/, '').replace(/\]$/, ''), 'danger');
     } else {
       mostrarToast('Voz transcripta y guardada.');
+      if (status) status.textContent = 'Observación de voz guardada.';
       const modalEl = document.getElementById('modalObservacion');
       if (modalEl?.classList.contains('show')) bootstrap.Modal.getOrCreateInstance(modalEl).hide();
       await cargarStats();
     }
     cargarObsHoy();
   } catch (e) {
+    if (status) status.textContent = 'No se pudo guardar el audio. Revisá la conexión e intentá nuevamente.';
     mostrarToast('Error al procesar audio: ' + e.message, 'danger');
+  } finally {
+    if (status) window.setTimeout(() => { status.textContent = ''; }, 5000);
   }
 }
 
@@ -507,7 +517,12 @@ async function cargarObsAlumno(idAlumno) {
 
     // Mostrar observaciones
     if (!obs.length) {
-      c.innerHTML = '<div class="text-center py-5 text-muted"><p class="mb-2 fs-4">📋</p><p class="small">Todavía no hay observaciones. Las notas de voz o escritas aparecerán acá.</p></div>';
+      c.innerHTML = `<div class="empty-state student-observations-empty">
+        <span class="empty-state-icon" aria-hidden="true">🎙</span>
+        <strong>Todavía no hay observaciones</strong>
+        <span>Podés registrar una nota rápida por voz desde la lista o escribirla desde el inicio. Cuando la guardes, aparecerá acá.</span>
+        <a class="btn btn-primary" href="/dashboard?registrar=${idAlumno}">Registrar primera observación</a>
+      </div>`;
       return;
     }
     const grupos = {};
@@ -710,7 +725,12 @@ async function cargarObsHoy() {
   try {
     const obs = await api('GET', '/api/observaciones/hoy');
     if (!obs.length) {
-      c.innerHTML = '<p class="text-muted small">No hay observaciones registradas hoy.</p>';
+      c.innerHTML = `<div class="empty-state today-empty">
+        <span class="empty-state-icon" aria-hidden="true">☀</span>
+        <strong>El día todavía está por empezar</strong>
+        <span>Las observaciones que registres hoy van a reunirse acá.</span>
+        <button class="btn btn-outline-primary" type="button" onclick="document.querySelector('#dashboardTabs [data-tab=alumnos]')?.click(); document.getElementById('studentSearch')?.focus()">Ir a mis alumnos</button>
+      </div>`;
       return;
     }
     c.innerHTML = obs.map(o => `

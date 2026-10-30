@@ -12,7 +12,7 @@ class PrivacidadTest(unittest.TestCase):
     def test_documentos_legales_publicos(self):
         privacidad = self.read('templates/privacidad.html')
         terminos = self.read('templates/terminos.html')
-        self.assertIn('Chiara Agustina Kordek', privacidad)
+        self.assertNotIn('Chiara Agustina Kordek', privacidad)
         self.assertIn('infia.soporte@gmail.com', privacidad)
         self.assertIn('Groq', privacidad)
         self.assertIn('Mercado Pago', privacidad)
