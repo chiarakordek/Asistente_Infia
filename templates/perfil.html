@@ -36,11 +36,10 @@
 
     <div class="profile-grid">
       <section class="card profile-card profile-details-card">
-        <div class="profile-section-heading"><span class="profile-section-icon">01</span><div><h2>Datos del perfil</h2><p>Actualizá tu nombre y foto de perfil.</p></div></div>
+        <div class="profile-section-heading"><span class="profile-section-icon" aria-hidden="true">✎</span><div><h2>Datos del perfil</h2><p>Actualizá tu nombre y correo de acceso.</p></div></div>
         <form id="formPerfil">
           <div class="mb-3"><label class="form-label" for="pfNombre">Nombre completo</label><input type="text" id="pfNombre" class="form-control" value="{{ user.nombre }}" required maxlength="100"></div>
           <div class="mb-3"><label class="form-label" for="pfEmail">Correo electrónico</label><input type="email" id="pfEmail" class="form-control" value="{{ user.email }}" disabled><small class="text-muted">El correo no se puede cambiar.</small></div>
-          <section class="profile-room-summary mb-3"><div><span class="profile-room-kicker">MIS SALAS</span><strong>{{ sala_actual.nombre if sala_actual else "Sin sala" }}</strong><small>Alumnos, observaciones e informes separados por sala.</small></div><a class="btn btn-outline-primary" href="/salas">Administrar salas <span aria-hidden="true">→</span></a></section>
           <div id="pfError" class="alert alert-danger d-none py-2 small"></div>
           <div id="pfSuccess" class="alert alert-success d-none py-2 small">Perfil actualizado.</div>
           <button type="submit" class="btn btn-primary" id="btnPfGuardar">Guardar cambios <span aria-hidden="true">→</span></button>
@@ -54,6 +53,12 @@
             <button type="button" class="text-size-option" data-texto="normal" onclick="cambiarTamanoTexto('normal')" aria-pressed="false"><span class="text-size-sample text-size-sample-normal" aria-hidden="true">Aa</span><span class="text-size-label">Estándar</span></button>
             <button type="button" class="text-size-option" data-texto="grande" onclick="cambiarTamanoTexto('grande')" aria-pressed="false"><span class="text-size-sample text-size-sample-large" aria-hidden="true">Aa</span><span class="text-size-label">Grande</span></button>
           </div>
+        </section>
+
+        <section class="card profile-card profile-room-summary">
+          <div class="profile-section-heading"><span class="profile-section-icon" aria-hidden="true">⌂</span><div><h2>Mis salas</h2><p>Alumnos e informes separados por grupo.</p></div></div>
+          <div class="profile-room-current"><span class="profile-room-kicker">SALA ACTIVA</span><strong>{{ sala_actual.nombre if sala_actual else "Sin sala" }}</strong></div>
+          <a class="btn btn-outline-primary" href="/salas">Administrar salas <span aria-hidden="true">→</span></a>
         </section>
 
         <section class="card profile-card">

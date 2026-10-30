@@ -107,6 +107,7 @@ from src.db import (
 from src.suscripcion import (
     estado_cuenta, dias_restantes, crear_preapproval,
     suscripcion_activa, procesar_notificacion, es_gratis,
+    PRECIO_MENSUAL, PRECIO_ANUAL,
 )
 from src.transcriptor import transcribir_audio
 from src.generar_informe import formatear_informe_ia
@@ -116,11 +117,6 @@ from src.db import inicializar_bd
 inicializar_bd()
 
 # ─── Helpers ─────────────────────────────
-AREAS_DEFAULT = [
-    {'id': 0, 'nombre': 'Identidad y Convivencia'}, {'id': 0, 'nombre': 'Lenguaje y Literatura'},
-    {'id': 0, 'nombre': 'Matemáticas'}, {'id': 0, 'nombre': 'Ciencias Sociales, Ciencias Naturales y Tecnología'},
-]
-
 def sala_activa_id(user_id=None):
     user_id = user_id or session.get('user_id')
     if not user_id:
@@ -145,8 +141,7 @@ def contexto_salas():
     return {'salas_docente': salas, 'sala_actual': actual}
 
 def areas_para(user_id, id_sala=None):
-    areas = obtener_areas_usuario(user_id, id_sala)
-    return areas or AREAS_DEFAULT
+    return obtener_areas_usuario(user_id, id_sala)
 
 def hash_pass(pw):
     return generate_password_hash(pw)
@@ -329,7 +324,10 @@ def suscripcion_page():
     return render_template('suscripcion.html', user=user, estado=estado,
                            gratis=gratis,
                            dias=dias_restantes(s),
-                           vencimiento=_fmt_fecha(s.get('fecha_vencimiento')) if s else '')
+                           vencimiento=_fmt_fecha(s.get('fecha_vencimiento')) if s else '',
+                           tipo_plan=s.get('tipo_plan') if s else None,
+                           precio_mensual=f'{PRECIO_MENSUAL:,}'.replace(',', '.'),
+                           precio_anual=f'{PRECIO_ANUAL:,}'.replace(',', '.'))
 
 @app.route('/api/suscripcion/crear', methods=['POST'])
 @login_required
@@ -879,26 +877,38 @@ def api_subir_audio():
 @app.route('/api/areas', methods=['GET'])
 @login_required
 def api_areas():
-    return jsonify(areas_para(session['user_id']))
+    return jsonify(areas_para(session['user_id'], sala_activa_id()))
 
 @app.route('/api/areas', methods=['POST'])
 @login_required
 def api_crear_area():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     nombre = (data.get('nombre') or '').strip()
     if not nombre:
         return jsonify(error='Falta nombre'), 400
-    crear_area(session['user_id'], nombre, sala_activa_id())
+    if len(nombre) > 80:
+        return jsonify(error='El nombre no puede superar los 80 caracteres.'), 400
+    try:
+        crear_area(session['user_id'], nombre, sala_activa_id())
+    except ValueError as e:
+        return jsonify(error=str(e)), 409
     return jsonify(ok=True), 201
 
 @app.route('/api/areas/<int:id_area>', methods=['PUT'])
 @login_required
 def api_renombrar_area(id_area):
-    data = request.json
+    data = request.get_json(silent=True) or {}
     nuevo = (data.get('nombre') or '').strip()
     if not nuevo:
         return jsonify(error='Falta nombre'), 400
-    renombrar_area(session['user_id'], id_area, nuevo, sala_activa_id())
+    if len(nuevo) > 80:
+        return jsonify(error='El nombre no puede superar los 80 caracteres.'), 400
+    try:
+        renombrar_area(session['user_id'], id_area, nuevo, sala_activa_id())
+    except Exception as e:
+        if 'uq_areas_usuario_sala_nombre' in str(e):
+            return jsonify(error='Ya existe un área con ese nombre en esta sala.'), 409
+        raise
     return jsonify(ok=True)
 
 @app.route('/api/areas/<int:id_area>', methods=['DELETE'])

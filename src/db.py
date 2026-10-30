@@ -80,6 +80,7 @@ def inicializar_bd():
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'trial'")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS fecha_vencimiento DATE")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS mp_preapproval_id TEXT")
+        execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tipo_plan TEXT")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_solicitada_en TIMESTAMP")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS motivo_baja TEXT")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar_data TEXT")
@@ -97,6 +98,12 @@ def inicializar_bd():
             mp_payment_id TEXT,
             fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )''')
+        execute(conn, '''UPDATE usuarios u SET tipo_plan = (
+                           SELECT p.tipo FROM pagos p WHERE p.id_usuario = u.id_usuario
+                             AND p.tipo IN ('mensual', 'anual') ORDER BY p.fecha DESC, p.id_pago DESC LIMIT 1
+                         ) WHERE u.tipo_plan IS NULL AND u.plan = 'pago'
+                           AND EXISTS (SELECT 1 FROM pagos p WHERE p.id_usuario = u.id_usuario
+                                       AND p.tipo IN ('mensual', 'anual'))''')
 
         execute(conn, '''CREATE TABLE IF NOT EXISTS soportes (
             id_soporte SERIAL PRIMARY KEY,
@@ -203,6 +210,23 @@ def inicializar_bd():
             execute(conn, f'ALTER TABLE {tabla} ALTER COLUMN id_sala SET NOT NULL')
             execute(conn, f'CREATE INDEX IF NOT EXISTS idx_{tabla}_sala ON {tabla}(id_sala)')
 
+        # Las áreas sembradas automáticamente ya no se muestran a docentes.
+        # Conservamos las que hayan sido usadas por indicadores existentes.
+        execute(conn, '''DELETE FROM areas_usuario a
+                         WHERE lower(btrim(a.nombre)) = ANY(%s)
+                           AND NOT EXISTS (
+                             SELECT 1 FROM actividades act
+                             WHERE act.id_usuario = a.id_usuario AND act.id_sala = a.id_sala
+                               AND lower(btrim(act.area)) = lower(btrim(a.nombre))
+                           )''', (['identidad y convivencia', 'lenguaje y literatura', 'matemáticas',
+                                  'ciencias sociales, ciencias naturales y tecnología'],))
+        execute(conn, '''DELETE FROM areas_usuario a USING areas_usuario b
+                         WHERE a.id_usuario = b.id_usuario AND a.id_sala = b.id_sala
+                           AND lower(btrim(a.nombre)) = lower(btrim(b.nombre))
+                           AND a.id_area > b.id_area''')
+        execute(conn, '''CREATE UNIQUE INDEX IF NOT EXISTS uq_areas_usuario_sala_nombre
+                         ON areas_usuario (id_usuario, id_sala, lower(btrim(nombre)))''')
+
         conn.commit()
         print("Base de datos PostgreSQL actualizada con éxito!")
     except Exception as e:
@@ -224,9 +248,6 @@ def crear_usuario(nombre, email, contraseña, sala, turno):
         id_sala = execute_return(conn,
             'INSERT INTO salas_docente (id_usuario, nombre, sala, turno) VALUES (%s,%s,%s,%s) RETURNING id_sala',
             (uid, nombre_sala, sala, turno))
-        for area in AREAS_DEFAULT:
-            execute(conn, 'INSERT INTO areas_usuario (id_usuario, id_sala, nombre) VALUES (%s,%s,%s)',
-                    (uid, id_sala, area))
         conn.commit()
         return uid
     except psycopg2.errors.UniqueViolation:
@@ -272,9 +293,6 @@ def crear_sala_docente(id_usuario, nombre, sala, turno):
         id_sala = execute_return(conn,
             'INSERT INTO salas_docente (id_usuario, nombre, sala, turno) VALUES (%s,%s,%s,%s) RETURNING id_sala',
             (id_usuario, nombre, sala, turno))
-        for area in AREAS_DEFAULT:
-            execute(conn, 'INSERT INTO areas_usuario (id_usuario, id_sala, nombre) VALUES (%s,%s,%s)',
-                    (id_usuario, id_sala, area))
         conn.commit()
         return id_sala
     finally:
@@ -421,21 +439,22 @@ def obtener_suscripcion(id_usuario):
     conn = conectar()
     try:
         return fetch_one_raw(conn,
-            'SELECT email, fecha_registro, plan, fecha_vencimiento, mp_preapproval_id FROM usuarios WHERE id_usuario = %s',
+            'SELECT email, fecha_registro, plan, fecha_vencimiento, mp_preapproval_id, tipo_plan FROM usuarios WHERE id_usuario = %s',
             (id_usuario,))
     finally:
         conn.close()
 
-def extender_suscripcion(id_usuario, dias, mp_preapproval_id):
+def extender_suscripcion(id_usuario, dias, mp_preapproval_id, tipo_plan=None):
     conn = conectar()
     try:
         execute(conn,
             '''UPDATE usuarios
                SET plan = 'pago',
                    fecha_vencimiento = GREATEST(CURRENT_DATE + %s::int, COALESCE(fecha_vencimiento, CURRENT_DATE + %s::int)),
-                   mp_preapproval_id = %s
+                   mp_preapproval_id = %s,
+                   tipo_plan = COALESCE(%s, tipo_plan)
                WHERE id_usuario = %s''',
-            (dias, dias, mp_preapproval_id, id_usuario))
+            (dias, dias, mp_preapproval_id, tipo_plan, id_usuario))
         conn.commit()
     finally:
         conn.close()
@@ -772,30 +791,25 @@ def obtener_stats(id_usuario, id_sala=None):
 
 # ─── ÁREAS ────────────────────────────────
 
-AREAS_DEFAULT = ['Identidad y Convivencia', 'Lenguaje y Literatura',
-                 'Matemáticas', 'Ciencias Sociales, Ciencias Naturales y Tecnología']
-
-def _asegurar_areas_default(conn, id_usuario, id_sala=None):
-    count = fetch_one(conn, 'SELECT COUNT(*) AS c FROM areas_usuario WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala)', (id_usuario, id_sala))['c']
-    if count == 0:
-        for nombre in AREAS_DEFAULT:
-            execute(conn, 'INSERT INTO areas_usuario (id_usuario, id_sala, nombre) VALUES (%s,%s,%s)', (id_usuario, id_sala, nombre))
+def _asegurar_areas_usuario(conn, id_usuario, id_sala=None):
+    existing = {r['nombre'].strip().casefold() for r in fetch_all(
+        conn, 'SELECT nombre FROM areas_usuario WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala)',
+        (id_usuario, id_sala))}
+    activity_areas = fetch_all(conn, "SELECT DISTINCT area FROM actividades WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala) AND btrim(area) != '' AND area != 'Sin área'", (id_usuario, id_sala))
+    added = False
+    for row in activity_areas:
+        nombre = (row['area'] or '').strip()
+        if nombre and nombre.casefold() not in existing:
+            execute(conn, 'INSERT INTO areas_usuario (id_usuario, id_sala, nombre) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING', (id_usuario, id_sala, nombre))
+            existing.add(nombre.casefold())
+            added = True
+    if added:
         conn.commit()
-    else:
-        existing = {r['nombre'] for r in fetch_all(conn, 'SELECT nombre FROM areas_usuario WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala)', (id_usuario, id_sala))}
-        activity_areas = fetch_all(conn, "SELECT DISTINCT area FROM actividades WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala) AND area != '' AND area != 'Sin área'", (id_usuario, id_sala))
-        added = False
-        for row in activity_areas:
-            if row['area'] not in existing:
-                execute(conn, 'INSERT INTO areas_usuario (id_usuario, id_sala, nombre) VALUES (%s,%s,%s)', (id_usuario, id_sala, row['area']))
-                added = True
-        if added:
-            conn.commit()
 
 def obtener_areas_usuario(id_usuario, id_sala=None):
     conn = conectar()
     try:
-        _asegurar_areas_default(conn, id_usuario, id_sala)
+        _asegurar_areas_usuario(conn, id_usuario, id_sala)
         rows = fetch_all(conn, 'SELECT id_area, nombre FROM areas_usuario WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala) ORDER BY nombre', (id_usuario, id_sala))
         return [{'id': row['id_area'], 'nombre': row['nombre']} for row in rows]
     finally:
@@ -804,6 +818,13 @@ def obtener_areas_usuario(id_usuario, id_sala=None):
 def crear_area(id_usuario, nombre, id_sala=None):
     conn = conectar()
     try:
+        nombre = nombre.strip()
+        exists = fetch_one(conn, '''SELECT 1 FROM areas_usuario WHERE id_usuario = %s
+                                     AND id_sala = COALESCE(%s, id_sala)
+                                     AND lower(btrim(nombre)) = lower(btrim(%s))''',
+                           (id_usuario, id_sala, nombre))
+        if exists:
+            raise ValueError('Ya existe un área con ese nombre en esta sala.')
         execute(conn, 'INSERT INTO areas_usuario (id_usuario, id_sala, nombre) VALUES (%s,%s,%s)', (id_usuario, id_sala, nombre))
         conn.commit()
     finally:

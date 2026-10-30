@@ -22,21 +22,24 @@
       <a href="/terminos" class="account-menu-item"><span class="account-icon">✓</span><span><strong>Términos de Uso</strong><small>Reglas y responsabilidades de Infia.</small></span><span>›</span></a>
     </div>
 
-    <section class="card p-4 border-danger">
-      <h2 class="h5 text-danger mb-2">Eliminar mi cuenta</h2>
+    <details class="account-danger-disclosure" {% if baja_pendiente %}open{% endif %}>
+      <summary><span><strong>Zona de riesgo</strong><small>Acciones permanentes sobre tu cuenta</small></span><span class="account-danger-chevron" aria-hidden="true">⌄</span></summary>
+      <section class="account-danger-content">
+      <h2 class="h5 mb-2">Eliminar mi cuenta</h2>
       {% if baja_pendiente %}
-      <div class="alert alert-warning">Tu cuenta está suspendida y pendiente de eliminación. Podés cancelar la solicitud durante los 7 días previos al borrado definitivo.</div>
-      <button type="button" class="btn btn-outline-success w-100" id="btnCancelarBaja">Conservar mi cuenta</button>
+      <div class="alert alert-warning">La cuenta está suspendida y su eliminación está programada. Todavía podés conservarla dentro de los 7 días.</div>
+      <button type="button" class="btn btn-outline-success" id="btnCancelarBaja">Cancelar eliminación y conservar cuenta</button>
       {% else %}
-      <p class="text-muted">La cuenta se suspenderá durante 7 días. Si no cancelás la solicitud, se eliminarán tus datos asociados.</p>
+      <p class="text-muted">La cuenta se suspenderá durante 7 días. Si no cancelás la solicitud dentro de ese plazo, se eliminarán tus datos asociados.</p>
       <form id="formBaja">
         <label class="form-label" for="motivoBaja">¿Por qué querés eliminarla?</label>
         <textarea id="motivoBaja" class="form-control mb-3" rows="3" maxlength="1000" required placeholder="Tu respuesta nos ayuda a mejorar Infia"></textarea>
         <div id="bajaError" class="alert alert-danger d-none"></div>
-        <button type="submit" class="btn btn-outline-danger w-100" id="btnBaja">Solicitar eliminación</button>
+        <button type="submit" class="btn btn-danger" id="btnBaja">Solicitar eliminación de la cuenta</button>
       </form>
       {% endif %}
-    </section>
+      </section>
+    </details>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/static/js/app.js?v=31"></script>
@@ -44,7 +47,7 @@
     const formBaja = document.getElementById('formBaja');
     if (formBaja) formBaja.addEventListener('submit', async e => {
       e.preventDefault();
-      if (!confirm('¿Querés solicitar la eliminación de tu cuenta? Tendrás 7 días para cancelarla.')) return;
+      if (!confirm('La cuenta se suspenderá de inmediato y tus datos se eliminarán al finalizar los 7 días. ¿Querés continuar?')) return;
       const err = document.getElementById('bajaError');
       const btn = document.getElementById('btnBaja');
       err.classList.add('d-none'); btn.disabled = true;

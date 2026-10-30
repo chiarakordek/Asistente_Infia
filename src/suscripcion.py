@@ -132,7 +132,7 @@ def procesar_notificacion(mp_id, tipo):
             return None
         user_id, tipo_plan = parsed
         dias = 360 if tipo_plan == 'anual' else 30
-        extender_suscripcion(user_id, dias, mp_id)
+        extender_suscripcion(user_id, dias, mp_id, tipo_plan)
         registrar_pago(user_id, int(j.get('transaction_amount') or 0), tipo_plan, mp_id)
         return user_id
     j = obtener_preapproval(mp_id)
@@ -143,5 +143,5 @@ def procesar_notificacion(mp_id, tipo):
         return None
     user_id, tipo_plan = parsed
     dias = 360 if tipo_plan == 'anual' else 30
-    extender_suscripcion(user_id, dias, mp_id)
+    extender_suscripcion(user_id, dias, mp_id, tipo_plan)
     return user_id

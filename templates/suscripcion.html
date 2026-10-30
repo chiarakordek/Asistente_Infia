@@ -27,7 +27,14 @@
             {% elif estado == 'pago' %}
               <div class="subscription-status status-success">
                 <span class="subscription-status-icon" aria-hidden="true">✓</span>
-                <div><strong>Tu plan está activo</strong>{% if vencimiento %}<span>Próximo vencimiento: {{ vencimiento }}</span>{% endif %}<span>La renovación se gestiona desde Mercado Pago.</span></div>
+                <div><strong>{% if tipo_plan == 'anual' %}Plan anual{% elif tipo_plan == 'mensual' %}Plan mensual{% elif user.mp_preapproval_id %}Suscripción activa{% else %}Plan activo{% endif %}</strong>
+                  {% if tipo_plan == 'anual' %}<span>${{ precio_anual }} cada 12 meses · renovación automática</span>
+                  {% elif tipo_plan == 'mensual' %}<span>${{ precio_mensual }} por mes · renovación automática</span>
+                  {% elif user.mp_preapproval_id %}<span>No tenemos registrada la frecuencia de esta suscripción anterior. Revisá la renovación en Mercado Pago.</span>
+                  {% else %}<span>Tu acceso fue habilitado por Infia.</span>{% endif %}
+                  {% if vencimiento %}<span>Próximo vencimiento: {{ vencimiento }}</span>{% endif %}
+                  {% if tipo_plan %}<span>La renovación se gestiona desde Mercado Pago.</span>{% endif %}
+                </div>
               </div>
             {% elif estado == 'trial' %}
               <div class="subscription-status status-trial">
@@ -45,13 +52,13 @@
             <div class="subscription-plans" aria-label="Elegí la frecuencia de pago">
               <article class="plan-card">
                 <div class="plan-card-heading"><h2>Mensual</h2><span>Se renueva automáticamente cada mes</span></div>
-                <p class="plan-price"><strong>$15.000</strong><span>/ mes</span></p>
+                <p class="plan-price"><strong>${{ precio_mensual }}</strong><span>/ mes</span></p>
                 <button class="btn btn-outline-primary w-100" onclick="iniciarPago('mensual')">Elegir mensual</button>
               </article>
               <article class="plan-card plan-card-featured">
                 <span class="plan-saving">Ahorrás $60.000 al año</span>
                 <div class="plan-card-heading"><h2>Anual</h2><span>Se renueva automáticamente cada 12 meses</span></div>
-                <p class="plan-price"><strong>$120.000</strong><span>/ año</span></p>
+                <p class="plan-price"><strong>${{ precio_anual }}</strong><span>/ año</span></p>
                 <p class="plan-equivalent">Equivale a $10.000 por mes</p>
                 <button class="btn btn-primary w-100" onclick="iniciarPago('anual')">Elegir anual</button>
               </article>
