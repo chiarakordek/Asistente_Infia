@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const btn = lf.querySelector('button[type=submit]');
-    btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Entrando...';
+    btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Ingresando…';
     try {
       const formData = { email: lf.email.value, contraseña: lf.password.value };
       const r = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(formData) });
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       errEl.textContent = err.message;
       errEl.classList.remove('d-none');
-      btn.disabled = false; btn.innerHTML = 'Entrar';
+      btn.disabled = false; btn.removeAttribute('aria-busy'); btn.innerHTML = 'Entrar a mi aula <span aria-hidden="true">→</span>';
     }
   });
 
@@ -112,14 +112,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let valid = true;
     if (!nombre) { rf.nombre.classList.add('is-invalid'); valid = false; }
     if (!email || !email.includes('@')) { rf.email.classList.add('is-invalid'); valid = false; }
-    if (pw.length < 8) { rf.password.classList.add('is-invalid'); valid = false; }
+    const politicaPasswordOk = pw.length >= 8 && /[A-Z]/.test(pw) && /[0-9]/.test(pw) && !/(.)\1{2,}/.test(pw);
+    if (!politicaPasswordOk) { rf.password.classList.add('is-invalid'); valid = false; }
     if (pw !== pw2) { rf.password2.classList.add('is-invalid'); valid = false; }
     if (aceptaTerminos && !aceptaTerminos.checked) { aceptaTerminos.classList.add('is-invalid'); valid = false; }
     const invCodigo = rf.codigo;
     if (invCodigo && !invCodigo.value.trim()) { invCodigo.classList.add('is-invalid'); valid = false; }
-    if (!valid) return;
+    if (!valid) {
+      rf.querySelector('.is-invalid')?.focus();
+      return;
+    }
     const btn = rf.querySelector('button[type=submit]');
-    btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creando...';
+    btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Creando tu espacio…';
     try {
       await api('POST', '/api/register', {
          nombre, email, contraseña: pw, sala: rf.sala.value, turno: rf.turno.value,
@@ -130,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       errEl.textContent = err.message;
       errEl.classList.remove('d-none');
-      btn.disabled = false; btn.innerHTML = 'Crear cuenta';
+      btn.disabled = false; btn.removeAttribute('aria-busy'); btn.innerHTML = 'Crear mi cuenta <span aria-hidden="true">→</span>';
     }
   });
 });
