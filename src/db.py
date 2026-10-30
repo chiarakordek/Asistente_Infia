@@ -81,6 +81,7 @@ def inicializar_bd():
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS fecha_vencimiento DATE")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS mp_preapproval_id TEXT")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tipo_plan TEXT")
+        execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS monto_plan INTEGER")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_solicitada_en TIMESTAMP")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS motivo_baja TEXT")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar_data TEXT")
@@ -102,6 +103,12 @@ def inicializar_bd():
                            SELECT p.tipo FROM pagos p WHERE p.id_usuario = u.id_usuario
                              AND p.tipo IN ('mensual', 'anual') ORDER BY p.fecha DESC, p.id_pago DESC LIMIT 1
                          ) WHERE u.tipo_plan IS NULL AND u.plan = 'pago'
+                           AND EXISTS (SELECT 1 FROM pagos p WHERE p.id_usuario = u.id_usuario
+                                       AND p.tipo IN ('mensual', 'anual'))''')
+        execute(conn, '''UPDATE usuarios u SET monto_plan = (
+                           SELECT p.monto FROM pagos p WHERE p.id_usuario = u.id_usuario
+                             AND p.tipo IN ('mensual', 'anual') ORDER BY p.fecha DESC, p.id_pago DESC LIMIT 1
+                         ) WHERE u.monto_plan IS NULL AND u.plan = 'pago'
                            AND EXISTS (SELECT 1 FROM pagos p WHERE p.id_usuario = u.id_usuario
                                        AND p.tipo IN ('mensual', 'anual'))''')
 
@@ -439,12 +446,12 @@ def obtener_suscripcion(id_usuario):
     conn = conectar()
     try:
         return fetch_one_raw(conn,
-            'SELECT email, fecha_registro, plan, fecha_vencimiento, mp_preapproval_id, tipo_plan FROM usuarios WHERE id_usuario = %s',
+            'SELECT email, fecha_registro, plan, fecha_vencimiento, mp_preapproval_id, tipo_plan, monto_plan FROM usuarios WHERE id_usuario = %s',
             (id_usuario,))
     finally:
         conn.close()
 
-def extender_suscripcion(id_usuario, dias, mp_preapproval_id, tipo_plan=None):
+def extender_suscripcion(id_usuario, dias, mp_preapproval_id, tipo_plan=None, monto_plan=None):
     conn = conectar()
     try:
         execute(conn,
@@ -452,9 +459,10 @@ def extender_suscripcion(id_usuario, dias, mp_preapproval_id, tipo_plan=None):
                SET plan = 'pago',
                    fecha_vencimiento = GREATEST(CURRENT_DATE + %s::int, COALESCE(fecha_vencimiento, CURRENT_DATE + %s::int)),
                    mp_preapproval_id = %s,
-                   tipo_plan = COALESCE(%s, tipo_plan)
+                   tipo_plan = COALESCE(%s, tipo_plan),
+                   monto_plan = COALESCE(%s, monto_plan)
                WHERE id_usuario = %s''',
-            (dias, dias, mp_preapproval_id, tipo_plan, id_usuario))
+            (dias, dias, mp_preapproval_id, tipo_plan, monto_plan, id_usuario))
         conn.commit()
     finally:
         conn.close()

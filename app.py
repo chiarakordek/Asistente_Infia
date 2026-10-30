@@ -326,8 +326,12 @@ def suscripcion_page():
                            dias=dias_restantes(s),
                            vencimiento=_fmt_fecha(s.get('fecha_vencimiento')) if s else '',
                            tipo_plan=s.get('tipo_plan') if s else None,
+                           precio_plan=(f"{int(s['monto_plan']):,}".replace(',', '.') if s and s.get('monto_plan') else None),
+                           precio_mensual_plan=(f"{int(s['monto_plan']) // 12:,}".replace(',', '.') if s and s.get('tipo_plan') == 'anual' and s.get('monto_plan') else None),
                            precio_mensual=f'{PRECIO_MENSUAL:,}'.replace(',', '.'),
-                           precio_anual=f'{PRECIO_ANUAL:,}'.replace(',', '.'))
+                           precio_anual=f'{PRECIO_ANUAL:,}'.replace(',', '.'),
+                           precio_mensual_equivalente=f'{PRECIO_ANUAL // 12:,}'.replace(',', '.'),
+                           precio_ahorro_anual=f'{(PRECIO_MENSUAL * 12) - PRECIO_ANUAL:,}'.replace(',', '.'))
 
 @app.route('/api/suscripcion/crear', methods=['POST'])
 @login_required
@@ -641,8 +645,6 @@ def api_logout():
 def api_solicitar_baja():
     data = request.json or {}
     motivo = (data.get('motivo') or '').strip()
-    if len(motivo) < 5:
-        return jsonify(error='Contanos brevemente el motivo de la baja'), 400
     if len(motivo) > 1000:
         return jsonify(error='El motivo no puede superar los 1000 caracteres'), 400
     user = obtener_usuario_por_id(session['user_id'])
