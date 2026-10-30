@@ -2027,6 +2027,11 @@ body.texto-grande .page-title { font-size: clamp(1.65rem, 3.5vw, 2rem); }
 .plan-price span { color: #777287; font-size: .85rem; }
 .plan-equivalent { min-height: 1.3em; margin: 0 0 .75rem; color: #6a6490; font-size: .8rem; }
 .plan-card .btn { margin-top: auto; }
+.plan-includes { padding-top: 1rem; margin-top: 1rem; border-top: 1px solid #efedf5; }
+.plan-includes h2 { margin: 0 0 .65rem; color: #39344f; font-size: .9rem; font-weight: 800; }
+.plan-includes ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem 1rem; padding: 0; margin: 0; list-style: none; }
+.plan-includes li { position: relative; padding-left: 1.15rem; color: #6e6a82; font-size: .8rem; line-height: 1.45; }
+.plan-includes li::before { position: absolute; top: .05rem; left: 0; color: #6657d9; font-weight: 850; content: "✓"; }
 .subscription-payment-note { display: flex; align-items: center; justify-content: center; gap: .45rem; margin: 1rem 0 0; color: #777287; font-size: .82rem; text-align: center; }
 .subscription-payment-note span { color: #5c50c8; font-size: 1.1rem; }
 .subscription-actions { margin-top: .25rem; text-align: center; }
@@ -2040,6 +2045,8 @@ body.texto-grande .page-title { font-size: clamp(1.65rem, 3.5vw, 2rem); }
   .subscription-plans { grid-template-columns: 1fr; }
   .plan-card { padding: 1rem; }
   .plan-saving { order: 0; }
+  .plan-includes ul { grid-template-columns: 1fr; gap: .45rem; }
+  .subscription-footer { flex-wrap: wrap; gap: .55rem 1rem; }
   .profile-text-options { gap: .45rem; }
   .text-size-option { min-height: 68px; padding: .55rem; gap: .5rem; }
   .text-size-sample { width: 36px; height: 36px; flex-basis: 36px; }

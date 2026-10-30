@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="/static/icons/iconoinfia.png">
   <link rel="icon" type="image/png" href="/static/icons/iconoinfia.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=39">
+  <link rel="stylesheet" href="/static/css/styles.css?v=40">
 </head>
 <body class="subscription-page support-enabled">
   <main class="subscription-shell">
@@ -22,41 +22,49 @@
             {% if gratis %}
               <div class="subscription-status status-success">
                 <span class="subscription-status-icon" aria-hidden="true">✓</span>
-                <div><strong>Cuenta activa sin cargo</strong><span>No necesitás elegir un plan.</span></div>
+                <div><strong>Cuenta activa sin cargo</strong><span>Tu acceso sigue activo y no necesitás elegir un plan.</span></div>
               </div>
             {% elif estado == 'pago' %}
               <div class="subscription-status status-success">
                 <span class="subscription-status-icon" aria-hidden="true">✓</span>
-                <div><strong>Tu plan está activo</strong>{% if vencimiento %}<span>Próximo vencimiento: {{ vencimiento }}</span>{% endif %}</div>
+                <div><strong>Tu plan está activo</strong>{% if vencimiento %}<span>Próximo vencimiento: {{ vencimiento }}</span>{% endif %}<span>La renovación se gestiona desde Mercado Pago.</span></div>
               </div>
             {% elif estado == 'trial' %}
               <div class="subscription-status status-trial">
                 <span class="subscription-status-icon" aria-hidden="true">✦</span>
-                <div><strong>Período de prueba</strong><span>Te quedan {{ dias }} días.</span></div>
+                <div><strong>Período de prueba</strong><span>Te quedan {{ dias }} días. Después, elegí un plan para continuar.</span></div>
               </div>
             {% else %}
               <div class="subscription-status status-expired">
                 <span class="subscription-status-icon" aria-hidden="true">!</span>
-                <div><strong>Tu plan venció</strong><span>Tus datos siguen guardados. Elegí un plan para volver a usar Infia.</span></div>
+                <div><strong>Tu plan venció</strong><span>Tus alumnos y observaciones siguen guardados. Elegí un plan para volver a usar Infia.</span></div>
               </div>
             {% endif %}
 
             {% if not gratis and estado != 'pago' %}
             <div class="subscription-plans" aria-label="Elegí la frecuencia de pago">
               <article class="plan-card">
-                <div class="plan-card-heading"><h2>Mensual</h2><span>Flexibilidad mes a mes</span></div>
+                <div class="plan-card-heading"><h2>Mensual</h2><span>Se renueva automáticamente cada mes</span></div>
                 <p class="plan-price"><strong>$15.000</strong><span>/ mes</span></p>
                 <button class="btn btn-outline-primary w-100" onclick="iniciarPago('mensual')">Elegir mensual</button>
               </article>
               <article class="plan-card plan-card-featured">
                 <span class="plan-saving">Ahorrás $60.000 al año</span>
-                <div class="plan-card-heading"><h2>Anual</h2><span>Un pago por año</span></div>
+                <div class="plan-card-heading"><h2>Anual</h2><span>Se renueva automáticamente cada 12 meses</span></div>
                 <p class="plan-price"><strong>$120.000</strong><span>/ año</span></p>
                 <p class="plan-equivalent">Equivale a $10.000 por mes</p>
                 <button class="btn btn-primary w-100" onclick="iniciarPago('anual')">Elegir anual</button>
               </article>
             </div>
-            <p class="subscription-payment-note"><span aria-hidden="true">⌑</span> El pago y la confirmación se completan en Mercado Pago.</p>
+            <section class="plan-includes" aria-labelledby="planIncludesTitle">
+              <h2 id="planIncludesTitle">Los dos planes incluyen</h2>
+              <ul>
+                <li>Registro de observaciones por voz o texto</li>
+                <li>Alumnos y seguimiento organizados por sala</li>
+                <li>Informes para generar, editar y descargar</li>
+              </ul>
+            </section>
+            <p class="subscription-payment-note"><span aria-hidden="true">⌑</span> Al elegir un plan, vas a Mercado Pago para completar la suscripción.</p>
             {% endif %}
 
             {% if not gratis and estado != 'pago' %}
@@ -69,6 +77,7 @@
             <div id="errorMsg" class="alert alert-danger d-none py-2 small text-center" role="alert"></div>
 
             <footer class="subscription-footer">
+              <a href="/dashboard?soporte=1" onclick="if(document.querySelector('.soporte-btn')){document.querySelector('.soporte-btn').click();return false;}">¿Necesitás ayuda?</a>
               <a href="/dashboard">Volver al inicio</a>
               <a href="/api/logout">Cerrar sesión</a>
             </footer>
