@@ -1,8 +1,11 @@
 // ─── TOAST ───────────────────────────────
 function aplicarTamanoTexto() {
   const tamano = localStorage.getItem('infia-tamano-texto') || 'normal';
+  document.documentElement.classList.toggle('texto-grande', tamano === 'grande');
   if (tamano === 'grande') {
     document.body.classList.add('texto-grande');
+  } else {
+    document.body.classList.remove('texto-grande');
   }
   document.querySelectorAll('[data-texto]').forEach(btn => {
     const activo = btn.dataset.texto === tamano;
@@ -13,6 +16,7 @@ function aplicarTamanoTexto() {
 
 function cambiarTamanoTexto(tamano) {
   localStorage.setItem('infia-tamano-texto', tamano);
+  document.documentElement.classList.toggle('texto-grande', tamano === 'grande');
   document.body.classList.toggle('texto-grande', tamano === 'grande');
   document.querySelectorAll('[data-texto]').forEach(btn => {
     const activo = btn.dataset.texto === tamano;
