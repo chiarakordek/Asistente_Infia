@@ -2163,3 +2163,17 @@ body.texto-grande .page-title { font-size: clamp(1.65rem, 3.5vw, 2rem); }
 @media (prefers-reduced-motion: reduce) {
   .infia-tour-progress span { transition: none; }
 }
+
+.auth-mobile-brand { display: none; }
+
+/* En móvil, priorizar el acceso y dejar el contenido explicativo debajo. */
+@media (max-width: 700px) {
+  .auth-shell-login { margin: 0 auto; }
+  .auth-shell-login .auth-story-brand { display: none; }
+  .auth-shell-login .auth-mobile-brand { display: inline-flex; order: 0; margin: 0 .35rem; }
+  .auth-shell-login .auth-story { order: 2; }
+  .auth-shell-login .auth-form-card { order: 1; justify-self: stretch; }
+  .auth-shell-login .auth-story h1 { max-width: 24ch; font-size: clamp(1.55rem, 7vw, 2rem); }
+  .auth-shell-login .auth-story-copy { margin-top: .45rem; }
+  .auth-shell-login .auth-preview { width: 100%; }
+}
