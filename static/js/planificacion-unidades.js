@@ -13,7 +13,12 @@ document.addEventListener('DOMContentLoaded', () => {
         unidadSelect.replaceChildren(new Option('Sin unidad', ''), ...unidades.map(u => new Option(u.titulo, u.id_unidad)));
         if (unidades.some(u => String(u.id_unidad) === unidadSeleccionada)) unidadSelect.value = unidadSeleccionada;
         if (!unidades.length) {
-          c.innerHTML = '<div class="text-center py-5 text-muted"><p class="mb-1" style="font-size:2rem">📚</p><p class="small">No hay unidades didácticas todavía.</p></div>';
+          c.innerHTML = `<div class="empty-state planning-empty">
+            <span class="empty-state-icon" aria-hidden="true">▤</span>
+            <strong>Podés organizar tus propuestas por tema</strong>
+            <span>Las unidades son opcionales. Agrupá indicadores cuando quieras seguir un proyecto o una secuencia.</span>
+            <button class="btn btn-outline-primary" type="button" onclick="mostrarModalUnidad()">Crear primera unidad</button>
+          </div>`;
           return;
         }
         c.innerHTML = `
@@ -41,7 +46,18 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('');
         if (unidades.length) actualizarBulkBarUni();
       } catch (e) {
-        c.innerHTML = '<div class="alert alert-danger py-2 small">'+e.message+'</div>';
+        const error = document.createElement('div');
+        error.className = 'planning-error';
+        error.setAttribute('role', 'alert');
+        const message = document.createElement('span');
+        message.textContent = 'No pudimos cargar las unidades. ' + (e.message || 'Revisá tu conexión e intentá de nuevo.');
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'btn btn-sm btn-outline-primary';
+        retry.textContent = 'Reintentar';
+        retry.addEventListener('click', cargarUnidades);
+        error.append(message, retry);
+        c.replaceChildren(error);
       }
     }
 

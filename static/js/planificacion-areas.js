@@ -9,7 +9,11 @@ document.addEventListener('DOMContentLoaded', cargarAreas);
         areaSelect.replaceChildren(new Option('Seleccionar área', '', true, true), ...areas.map(a => new Option(a.nombre, a.nombre)));
         if (areas.some(a => a.nombre === areaSeleccionada)) areaSelect.value = areaSeleccionada;
         if (!areas.length) {
-          c.innerHTML = '<div class="text-center py-4 text-muted small">No hay áreas</div>';
+          c.innerHTML = `<div class="empty-state planning-empty">
+            <span class="empty-state-icon" aria-hidden="true">✳</span>
+            <strong>Creá tu primer área</strong>
+            <span>Las áreas te ayudan a clasificar qué aspectos observás. Escribí un nombre arriba y tocá “Agregar”.</span>
+          </div>`;
           return;
         }
         c.innerHTML = `
@@ -30,7 +34,21 @@ document.addEventListener('DOMContentLoaded', cargarAreas);
           </div>
         `).join('');
         if (areas.length) actualizarBulkBarArea();
-      } catch (e) {}
+      } catch (e) {
+        const c = document.getElementById('areasContainer');
+        const error = document.createElement('div');
+        error.className = 'planning-error';
+        error.setAttribute('role', 'alert');
+        const message = document.createElement('span');
+        message.textContent = 'No pudimos cargar las áreas. ' + (e.message || 'Revisá tu conexión e intentá de nuevo.');
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'btn btn-sm btn-outline-primary';
+        retry.textContent = 'Reintentar';
+        retry.addEventListener('click', cargarAreas);
+        error.append(message, retry);
+        c.replaceChildren(error);
+      }
     }
 
     async function agregarArea() {

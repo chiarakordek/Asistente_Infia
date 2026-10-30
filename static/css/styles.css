@@ -1146,6 +1146,96 @@ body.texto-grande .page-title { font-size: 1.8rem; }
   .auth-story-brand img, .auth-submit { transition: none !important; }
 }
 
+/* Shared lilac visual language for the teacher workspace. */
+.welcome-card {
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.18);
+  background: linear-gradient(118deg, #4d42bd 0%, #6658de 58%, #8576ed 100%);
+  box-shadow: 0 15px 34px rgba(76,63,182,.18);
+}
+.welcome-card::before { background: #b4acff; opacity: .46; }
+.welcome-card::after { border-color: rgba(255,255,255,.35); box-shadow: 0 0 0 22px rgba(255,255,255,.07), 0 0 0 44px rgba(255,255,255,.045); }
+.welcome-card .welcome-title { color: #fff; }
+.welcome-card p { color: rgba(255,255,255,.86); }
+.welcome-card .eyebrow { color: #e4e0ff; }
+.welcome-action { color: #5145bb; background: #fff; border: 1px solid rgba(255,255,255,.75); box-shadow: 0 5px 15px rgba(40,32,104,.15); }
+.welcome-action:hover { color: #392e98; background: #f6f4ff; }
+.welcome-profile-photo { border-color: rgba(255,255,255,.9); }
+.stats-row .card { border-bottom: 3px solid #e5e1ff; border-radius: 15px; }
+.stats-row .col-md-3:nth-child(1) .card { border-bottom-color: #7567e4; }
+.stats-row .col-md-3:nth-child(2) .card { border-bottom-color: #9688ef; }
+.stats-row .col-md-3:nth-child(3) .card { border-bottom-color: #b49be9; }
+.stats-row .col-md-3:nth-child(4) .card { border-bottom-color: #d3a5d2; }
+.dashboard-page, .alumno-page, .planning-page, .profile-page { padding-bottom: max(2rem, env(safe-area-inset-bottom)) !important; }
+.planning-page { max-width: 960px; }
+.planning-page-heading { margin-bottom: 1.1rem !important; }
+.planning-tabs { scroll-margin-top: 1rem; }
+.planning-tab { min-height: 68px; }
+.planning-tab:focus-visible { outline-offset: 2px; }
+.planning-panel { scroll-margin-top: 1rem; }
+.planning-empty { max-width: none; margin: .65rem 0; padding: 1.7rem 1rem; }
+.planning-empty .btn { min-height: 44px; }
+.planning-field-hint { display: block; margin-top: .4rem; color: #776e91; font-size: .76rem; }
+.planning-field-hint button { padding: 0; border: 0; background: none; color: #5145bb; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.planning-error { display: flex; align-items: center; justify-content: space-between; gap: .8rem; padding: .9rem 1rem; border: 1px solid #f0d4da; border-radius: 14px; background: #fff8f9; color: #75434d; font-size: .84rem; }
+.planning-error .btn { flex: 0 0 auto; }
+.actividad-card { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-width: 0; padding: .85rem 1rem; border: 1px solid #e8e5f2; border-radius: 15px; background: #fff; }
+.actividad-card > div:first-child { min-width: 0; flex-wrap: wrap; }
+.actividad-card > div:first-child > span:nth-of-type(1) { color: #37334d; font-weight: 650; overflow-wrap: anywhere; }
+.profile-photo-tools .btn { min-height: 44px; }
+.profile-links .profile-link-card:focus-visible { outline: 3px solid #5145bb; outline-offset: 2px; }
+.student-journey { border: 1px solid #e7e2fb; background: linear-gradient(115deg, #fff, #faf9ff); }
+.journey-step-current { color: #4e43b7; }
+.journey-step-current > span { background: #6559db; border-color: #6559db; box-shadow: 0 0 0 5px #efedff; }
+.journey-step-done > span { background: #8b7de8; border-color: #8b7de8; }
+.report-workspace > .report-heading { border-top-color: #e8e5f2; }
+.report-empty { background: linear-gradient(145deg, #fff, #faf9ff); border-color: #d9d3f2; }
+
+@media (max-width: 760px) {
+  .profile-hero { align-items: flex-start; flex-direction: column; gap: 1rem; }
+  .profile-grid { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 576px) {
+  .welcome-card { min-height: 0; padding: 1.15rem; border-radius: 20px; }
+  .welcome-greeting { align-items: center; }
+  .welcome-card .welcome-title { font-size: 1.55rem; }
+  .welcome-card .welcome-copy > p:last-child { max-width: 34ch; font-size: .88rem; line-height: 1.45; }
+  .welcome-action { align-self: stretch; justify-content: center; min-height: 46px; }
+  .stats-row { --bs-gutter-x: .6rem; --bs-gutter-y: .6rem; }
+  .stats-row .card { min-height: 76px; padding: .75rem !important; }
+  .planning-page { padding-top: 1rem !important; }
+  .planning-tabs { grid-template-columns: repeat(3, minmax(0,1fr)); gap: .25rem; padding: .3rem; }
+  .planning-tab { display: grid; grid-template-columns: minmax(0,1fr); justify-items: center; align-content: center; gap: .3rem; min-width: 0; min-height: 74px; padding: .55rem .2rem; text-align: center; }
+  .planning-tab-icon { width: 30px; height: 30px; flex-basis: 30px; border-radius: 10px; font-size: 1rem; }
+  .planning-tab strong { font-size: .75rem; line-height: 1.1; }
+  .planning-tab small { display: none; }
+  .planning-section-heading { gap: .65rem; }
+  .planning-section-heading .btn { width: 100%; }
+  .planning-area-form .d-flex { align-items: stretch; flex-direction: column; }
+  .planning-area-form .btn { width: 100%; }
+  .planning-error { align-items: stretch; flex-direction: column; }
+  .planning-error .btn { width: 100%; }
+  .actividad-card { align-items: flex-start; padding: .8rem; }
+  .actividad-card > div:first-child { flex: 1; }
+  .actividad-card > div:last-child .btn { min-width: 70px; }
+  .student-journey { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .35rem; padding: .75rem .65rem; }
+  .journey-connector { display: none; }
+  .journey-step { min-width: 0; align-items: flex-start; flex-direction: column; gap: .35rem; }
+  .journey-step strong { font-size: .72rem; }
+  .journey-step small { display: block; white-space: normal; font-size: .64rem; line-height: 1.25; }
+  .report-workspace > .report-heading { align-items: stretch; }
+  .profile-hero { padding: 1rem; border-radius: 19px; }
+  .profile-identity { align-items: center; }
+  .profile-photo-tools { gap: .45rem; }
+  .profile-photo-tools .btn { min-height: 44px; }
+  .profile-room-summary { gap: .75rem; }
+  .profile-room-summary .btn { width: 100%; }
+}
+@media (max-width: 360px) {
+  .planning-tab strong { font-size: .7rem; }
+  .journey-step small { font-size: .6rem; }
+}
+
 /* Infia Studio: vivid, hands-on workspace */
 :root {
   --primary: #4937d4;
