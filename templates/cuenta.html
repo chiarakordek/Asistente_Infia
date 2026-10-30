@@ -28,7 +28,7 @@
         <div><h2 id="closeAccountTitle">Cerrar mi cuenta</h2><p>Si ya no necesitás Infia, podés iniciar la eliminación. Vas a tener 7 días para cambiar de opinión.</p>{% if baja_pendiente %}<span class="account-close-status">Solicitud pendiente</span>{% endif %}</div>
       </div>
       <button class="account-close-trigger" type="button" id="toggleBaja" aria-controls="accountClosePanel" aria-expanded="{{ 'true' if baja_pendiente else 'false' }}">
-        {% if baja_pendiente %}Ver el estado de mi solicitud{% else %}Ver opciones{% endif %}<span aria-hidden="true">⌄</span>
+        {% if baja_pendiente %}Ver el estado de mi solicitud{% else %}Eliminar cuenta{% endif %}<span aria-hidden="true">⌄</span>
       </button>
       <div class="account-close-panel" id="accountClosePanel" {% if not baja_pendiente %}hidden{% endif %}>
         {% if baja_pendiente %}

@@ -2094,7 +2094,6 @@ body.texto-grande .page-title { font-size: clamp(1.65rem, 3.5vw, 2rem); }
 .account-close-trigger:hover { border-color: #cfc8f5; background: #f8f7ff; }
 .account-close-trigger[aria-expanded="true"] span { transform: rotate(180deg); }
 .account-close-trigger span { transition: transform .2s ease; }
-.account-close-panel { padding-top: .9rem; border-top: 1px solid #eeebf3; animation: account-panel-enter .3s ease both; }
 .account-close-panel[hidden] { display: none; }
 .account-close-timeline { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; margin-bottom: 1rem; }
 .account-close-timeline > div { display: flex; align-items: flex-start; gap: .55rem; min-width: 0; padding: .65rem; border-radius: 12px; background: #f8f7fc; }
@@ -2112,6 +2111,11 @@ body.texto-grande .page-title { font-size: clamp(1.65rem, 3.5vw, 2rem); }
 .account-close-pending-mark { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 10px; background: #eeebff; color: #5e53c3; font-weight: 850; }
 .account-close-pending strong { color: #3e3857; font-size: .84rem; }
 .account-close-pending p { margin: .18rem 0 0; color: #706b82; font-size: .78rem; line-height: 1.5; }
+.account-close-panel { position: relative; padding: 1rem; border: 1px solid #e4e0f4; border-radius: 16px; background: #fff; box-shadow: 0 10px 26px rgba(63,52,139,.08); animation: account-panel-enter .3s ease both; }
+.account-close-panel::before { position: absolute; top: -7px; left: 1.3rem; width: 12px; height: 12px; border-top: 1px solid #e4e0f4; border-left: 1px solid #e4e0f4; background: #fff; content: ""; transform: rotate(45deg); }
+.auth-preview-transcription { min-height: 3.1em; }
+.auth-typing-cursor { display: inline-block; width: 1px; height: 1.05em; margin-left: 2px; vertical-align: -.15em; background: #6b5ce7; animation: auth-caret-blink .85s steps(2, start) infinite; }
+@keyframes auth-caret-blink { to { visibility: hidden; } }
 @keyframes account-panel-enter { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes plan-card-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 560px) {
@@ -2126,7 +2130,8 @@ body.texto-grande .page-title { font-size: clamp(1.65rem, 3.5vw, 2rem); }
   .account-close-timeline { grid-template-columns: 1fr; }
   .account-close-timeline > div { align-items: center; }
   .account-close-trigger, .account-close-panel .btn { width: 100%; }
+  .auth-preview-transcription { min-height: 4.6em; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .subscription-current-plan, .account-close-panel { animation: none; }
+  .subscription-current-plan, .account-close-panel, .auth-typing-cursor { animation: none; }
 }
