@@ -20,6 +20,33 @@
   let previousFocus = null;
   let positionFrame = 0;
 
+  // El tutorial aparece justo en el primer uso: insertar sus estilos críticos
+  // también evita que una hoja vieja de la PWA lo deje como contenido sin formato.
+  if (!document.getElementById('infiaTourRuntimeStyles')) {
+    const style = document.createElement('style');
+    style.id = 'infiaTourRuntimeStyles';
+    style.textContent = `
+      .infia-tour[hidden]{display:none!important}
+      .infia-tour{position:fixed!important;z-index:2147483000!important;inset:0!important;isolation:isolate}
+      .infia-tour-scrim{position:fixed!important;z-index:0!important;inset:0!important;display:block!important;width:100vw!important;height:100vh!important;pointer-events:auto}
+      .infia-tour-card{position:fixed!important;z-index:1!important;max-width:calc(100vw - 24px);padding:1.15rem 1.2rem 1.05rem;border:1px solid #e4defb;border-radius:20px;background:#fff;color:#332e52;box-shadow:0 22px 70px rgba(22,17,51,.28);font-family:inherit}
+      .infia-tour-heading{display:flex;align-items:center;gap:.65rem;margin-bottom:.65rem}
+      .infia-tour-mark{display:grid;place-items:center;width:31px;height:31px;flex:0 0 31px;border-radius:10px;background:#efedff;color:#6356d8}
+      .infia-tour-progress-label{color:#7167bb;font-size:.69rem;font-weight:850;letter-spacing:.1em}
+      .infia-tour-skip{padding:.25rem .4rem;margin-left:auto;border:0;background:transparent;color:#77728a;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+      .infia-tour-progress{height:4px;overflow:hidden;margin-bottom:.95rem;border-radius:9px;background:#f0eef8}
+      .infia-tour-progress span{display:block;width:20%;height:100%;border-radius:inherit;background:#7566e8;transition:width .25s ease}
+      .infia-tour-card h2{margin:0 0 .45rem;color:#302b4d;font-size:1.18rem;font-weight:850;letter-spacing:-.025em}
+      .infia-tour-card>p{margin:0;color:#6f6a80;font-size:.91rem;line-height:1.6}
+      .infia-tour-card footer{display:flex;align-items:center;justify-content:space-between;gap:.8rem;margin-top:1.05rem}
+      .infia-tour-hint{color:#89849a;font-size:.69rem;line-height:1.35}
+      .infia-tour-card .btn{flex:0 0 auto;padding:.55rem .85rem;font-size:.84rem;font-weight:750}
+      @media(max-width:560px){.infia-tour-card{padding:1rem;border-radius:17px}.infia-tour-card h2{font-size:1.08rem}.infia-tour-card>p{font-size:.86rem;line-height:1.5}.infia-tour-card footer{align-items:flex-end}.infia-tour-hint{max-width:10rem}}
+      @media(prefers-reduced-motion:reduce){.infia-tour-progress span{transition:none}}
+    `;
+    document.head.appendChild(style);
+  }
+
   const makeSteps = () => {
     const student = document.querySelector('#alumnosContainer .alumno-item');
     const room = document.querySelector('.nav-room-switcher');
