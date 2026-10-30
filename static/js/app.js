@@ -568,8 +568,8 @@ function mostrarInforme(container, contenido, idAlumno, nombre, apellido) {
     .replace(/\n{3,}/g, '\n\n');
 
   container.innerHTML = `
-    <div class="informe-card" id="informeView">${html}</div>
-    <div class="report-actions mt-3">
+    <div class="informe-card velora-reveal" id="informeView">${html}</div>
+    <div class="report-actions mt-3 velora-reveal">
       <button class="btn btn-outline-primary" type="button" onclick="editarInforme(${idAlumno})" id="btnEditarInforme">Editar informe</button>
       <a class="btn btn-primary" href="/api/informe/${idAlumno}/pdf" id="btnDescargarInforme">Descargar PDF</a>
     </div>
@@ -652,20 +652,54 @@ async function recargarInforme(idAlumno) {
 async function generarInforme(idAlumno, auto = false) {
   const btn = document.getElementById('btnGenerar');
   const ic = document.getElementById('informeContainer');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generando...'; }
+  const informePrevio = Boolean(ic.querySelector('#informeView'));
+  let resultado = 'error';
+  if (btn) {
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.classList.add('velora-btn-loading');
+    btn.innerHTML = '<span class="velora-button-loader" aria-hidden="true"></span><span>Preparando informe</span>';
+  }
   if (!auto) {
-    ic.innerHTML = '<div class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> <span class="small text-muted">Generando informe con IA...</span></div>';
+    const estado = `<div class="${informePrevio ? 'velora-report-refresh' : 'velora-report-loading'}" role="status"><span class="velora-report-orbit" aria-hidden="true"><i></i></span><div class="velora-report-copy"><span class="velora-report-kicker">TU BORRADOR</span><strong>${informePrevio ? 'Actualizando el informe' : 'Preparando tu informe'}</strong><small>Ordenamos las observaciones para crear un punto de partida que puedas revisar.</small></div><span class="velora-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>`;
+    if (informePrevio) ic.insertAdjacentHTML('afterbegin', estado);
+    else ic.innerHTML = estado;
   }
   try {
     const r = await api('POST', `/api/informe/${idAlumno}`, {});
     mostrarInforme(ic, r.contenido, idAlumno);
     actualizarRecorridoAlumno(true, true);
+    resultado = 'ok';
     if (!auto) mostrarToast('Informe generado. Revisalo antes de descargarlo.');
   } catch (e) {
-    ic.innerHTML = `<div class="alert alert-danger py-2 small">Error: ${e.message}</div>`;
+    ic.querySelector('.velora-report-loading, .velora-report-refresh')?.remove();
+    if (!informePrevio) {
+      const error = document.createElement('div');
+      error.className = 'velora-report-error';
+      const title = document.createElement('strong');
+      title.textContent = 'No pudimos generar el informe';
+      const detail = document.createElement('small');
+      detail.textContent = e.message || 'Probá nuevamente en unos instantes.';
+      error.append(title, detail);
+      ic.replaceChildren(error);
+    }
     if (!auto) mostrarToast('Error al generar informe: ' + e.message, 'danger');
   } finally {
-     if (btn) { btn.disabled = false; btn.innerHTML = document.getElementById('informeView') ? 'Regenerar informe' : 'Generar informe'; }
+    if (btn) {
+      const tieneInforme = Boolean(document.getElementById('informeView'));
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      btn.classList.remove('velora-btn-loading');
+      btn.classList.toggle('velora-btn-success', resultado === 'ok' && !auto);
+      btn.innerHTML = resultado === 'ok' && !auto
+        ? '<span aria-hidden="true">✓</span><span>Informe listo</span>'
+        : `<span aria-hidden="true">✦</span><span>${tieneInforme ? 'Regenerar informe' : 'Generar informe'}</span>`;
+      if (resultado === 'ok' && !auto) setTimeout(() => {
+        if (!btn.isConnected || btn.disabled) return;
+        btn.classList.remove('velora-btn-success');
+        btn.innerHTML = `<span aria-hidden="true">✦</span><span>${document.getElementById('informeView') ? 'Regenerar informe' : 'Generar informe'}</span>`;
+      }, 1500);
+    }
   }
 }
 
@@ -1120,6 +1154,32 @@ if (document.readyState === 'loading') {
 } else {
   iniciarBurbujasDeAyuda();
 }
+
+// Ripple breve al tocar, adaptado del patrón Ripple Button de Velora UI.
+document.addEventListener('pointerdown', event => {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const button = event.target.closest('.btn-primary, .btn-outline-primary, .welcome-action');
+  if (!button || button.disabled) return;
+  const bounds = button.getBoundingClientRect();
+  const size = Math.max(bounds.width, bounds.height) * 1.5;
+  button.querySelectorAll(':scope > .velora-ripple').forEach(ripple => ripple.remove());
+  let label = button.querySelector(':scope > .velora-ripple-label');
+  if (!label) {
+    label = document.createElement('span');
+    label.className = 'velora-ripple-label';
+    while (button.firstChild) label.appendChild(button.firstChild);
+    button.appendChild(label);
+  }
+  const ripple = document.createElement('span');
+  ripple.className = 'velora-ripple';
+  ripple.style.width = `${size}px`;
+  ripple.style.height = `${size}px`;
+  ripple.style.left = `${event.clientX - bounds.left - size / 2}px`;
+  ripple.style.top = `${event.clientY - bounds.top - size / 2}px`;
+  button.classList.add('velora-ripple-host');
+  button.appendChild(ripple);
+  ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
+});
 
 // ─── SERVICE WORKER & INSTALL (PWA) ──────
 if ('serviceWorker' in navigator) {
