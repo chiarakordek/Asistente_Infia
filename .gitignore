@@ -19,7 +19,6 @@ venv/
 .venv/
 env/
 .env
-frontend/node_modules/
 
 # IDE / OS
 .vscode/

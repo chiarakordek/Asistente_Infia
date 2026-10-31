@@ -151,7 +151,7 @@ def login_required(f):
     @functools.wraps(f)
     def wrap(*a, **kw):
         if 'user_id' not in session:
-            if request.is_json or request.path.startswith('/api/'):
+            if request.is_json:
                 return jsonify(error='No autorizado'), 401
             return redirect('/login')
         return f(*a, **kw)
@@ -190,8 +190,6 @@ def procesar_bajas_programadas():
 def bloquear_cuenta_en_baja():
     if 'user_id' not in session or request.path.startswith('/static'):
         return
-    if request.path == '/api/me' or request.path.startswith('/react-preview'):
-        return
     if request.path in ('/config', '/cuenta', '/api/usuario/baja/cancelar', '/api/usuario/baja', '/api/logout'):
         return
     try:
@@ -208,8 +206,6 @@ def verificar_suscripcion():
     if not suscripcion_activa():
         return
     if 'user_id' not in session:
-        return
-    if request.path.startswith('/react-preview') or request.path == '/api/me':
         return
     if request.path in ('/suscripcion', '/config', '/cuenta', '/api/logout', '/api/usuario/baja/cancelar') or request.path.startswith('/api/suscripcion'):
         return
@@ -239,7 +235,7 @@ def redirigir_admin_a_panel():
     if request.path.startswith('/static'):
         return
     if es_admin():
-        if request.path.startswith('/admin') or request.path.startswith('/api/') or request.path.startswith('/react-preview'):
+        if request.path.startswith('/admin') or request.path.startswith('/api/'):
             return
         return redirect('/admin')
 
@@ -255,11 +251,11 @@ def index():
 
 @app.route('/login')
 def login_page():
-    return react_app_shell()
+    return render_template('login.html')
 
 @app.route('/registro')
 def registro_page():
-    return react_app_shell()
+    return render_template('registro.html', requiere_codigo=bool(os.environ.get('CODIGO_INVITACION')))
 
 @app.route('/privacidad')
 def privacidad_page():
@@ -269,21 +265,17 @@ def privacidad_page():
 def terminos_page():
     return render_template('terminos.html')
 
-def react_app_shell():
-    """Serve the built React application while Flask keeps owning the APIs."""
-    return send_from_directory(os.path.join(app.static_folder, 'react-app'), 'index.html')
-
 @app.route('/dashboard')
 @login_required
 def dashboard_page():
-    return react_app_shell()
-
-@app.route('/react-preview', defaults={'path': ''})
-@app.route('/react-preview/', defaults={'path': ''})
-@app.route('/react-preview/<path:path>')
-def react_frontend_preview(path):
-    """Serve the React frontend at its isolated pilot URL."""
-    return react_app_shell()
+    user = obtener_usuario_por_id(session['user_id'])
+    repetir_tutorial = request.args.get('tutorial') == '1'
+    tutorial_automatico = repetir_tutorial or not bool(user.get('tutorial_completado'))
+    if request.args.get('registrar'):
+        tutorial_automatico = repetir_tutorial
+    return render_template('dashboard.html', user=user,
+                           areas=areas_para(session['user_id'], sala_activa_id()),
+                           tutorial_automatico=tutorial_automatico)
 
 @app.route('/api/tutorial/completar', methods=['POST'])
 @login_required
@@ -294,7 +286,13 @@ def api_tutorial_completar():
 @app.route('/planificacion')
 @login_required
 def planificacion_page():
-    return react_app_shell()
+    user = obtener_usuario_por_id(session['user_id'])
+    id_sala = sala_activa_id()
+    unidades = obtener_unidades(session['user_id'], id_sala)
+    seccion = request.args.get('seccion', 'indicadores')
+    if seccion not in ('indicadores', 'unidades', 'areas'):
+        seccion = 'indicadores'
+    return render_template('actividades.html', user=user, areas=areas_para(session['user_id'], id_sala), unidades=unidades, seccion=seccion)
 
 @app.route('/actividades')
 @login_required
@@ -314,7 +312,13 @@ def areas_page():
 @app.route('/alumno/<int:id_alumno>')
 @login_required
 def alumno_page(id_alumno):
-    return react_app_shell()
+    from src.db import obtener_alumnos
+    alumnos = obtener_alumnos(session['user_id'], sala_activa_id())
+    alumno = next((a for a in alumnos if a['id_alumno'] == id_alumno), None)
+    if not alumno:
+        return redirect('/dashboard')
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('alumno.html', alumno=alumno, user=user)
 
 # ─── SUSCRIPCIÓN ─────────────────────────
 
@@ -326,7 +330,21 @@ def _fmt_fecha(v):
 @app.route('/suscripcion')
 @login_required
 def suscripcion_page():
-    return react_app_shell()
+    user = obtener_usuario_por_id(session['user_id'])
+    s = obtener_suscripcion(session['user_id'])
+    estado = estado_cuenta(s)
+    gratis = es_gratis(user.get('email'))
+    return render_template('suscripcion.html', user=user, estado=estado,
+                           gratis=gratis,
+                           dias=dias_restantes(s),
+                           vencimiento=_fmt_fecha(s.get('fecha_vencimiento')) if s else '',
+                           tipo_plan=s.get('tipo_plan') if s else None,
+                           precio_plan=(f"{int(s['monto_plan']):,}".replace(',', '.') if s and s.get('monto_plan') else None),
+                           precio_mensual_plan=(f"{int(s['monto_plan']) // 12:,}".replace(',', '.') if s and s.get('tipo_plan') == 'anual' and s.get('monto_plan') else None),
+                           precio_mensual=f'{PRECIO_MENSUAL:,}'.replace(',', '.'),
+                           precio_anual=f'{PRECIO_ANUAL:,}'.replace(',', '.'),
+                           precio_mensual_equivalente=f'{PRECIO_ANUAL // 12:,}'.replace(',', '.'),
+                           precio_ahorro_anual=f'{(PRECIO_MENSUAL * 12) - PRECIO_ANUAL:,}'.replace(',', '.'))
 
 @app.route('/api/suscripcion/crear', methods=['POST'])
 @login_required
@@ -351,17 +369,10 @@ def api_suscripcion_crear():
 def api_suscripcion_estado():
     s = obtener_suscripcion(session['user_id'])
     estado = estado_cuenta(s)
-    gratis = es_gratis(s.get('email'))
-    if gratis:
+    if es_gratis(s.get('email')):
         estado = 'pago'
     return jsonify(estado=estado, dias=dias_restantes(s),
-                   vencimiento=_fmt_fecha(s.get('fecha_vencimiento')) if s else '',
-                   plan=s.get('plan') if s else None,
-                   tipo_plan=s.get('tipo_plan') if s else None,
-                   gratis=gratis,
-                   monto_plan=int(s['monto_plan']) if s and s.get('monto_plan') else None,
-                   precio_mensual=PRECIO_MENSUAL,
-                   precio_anual=PRECIO_ANUAL)
+                   vencimiento=_fmt_fecha(s.get('fecha_vencimiento')) if s else '')
 
 @app.route('/webhook/mercadopago', methods=['POST', 'GET'])
 def webhook_mercadopago():
@@ -407,45 +418,52 @@ def _fmt_monto(n):
 def admin_page():
     if not es_admin():
         return redirect('/dashboard')
-    return react_app_shell()
-
-@app.route('/api/admin/panel', methods=['GET'])
-@login_required
-def api_admin_panel():
-    if not es_admin():
-        return jsonify(error='sin permiso'), 403
     usuarios = obtener_todos_usuarios()
+    pagos = obtener_pagos()
+    ingresos_mes = obtener_ingresos_mes()
     filas = []
-    for user in usuarios:
-        estado = 'gratis' if es_gratis(user.get('email')) else estado_cuenta(user)
+    for u in usuarios:
+        estado = estado_cuenta(u)
+        if es_gratis(u.get('email')):
+            estado = 'gratis'
         filas.append({
-            'id': user['id_usuario'], 'nombre': user['nombre'], 'email': user['email'],
-            'sala': user.get('sala') or '', 'estado': estado,
-            'registro': _fmt_fecha(user.get('fecha_registro')),
-            'vencimiento': _fmt_fecha(user.get('fecha_vencimiento')),
+            'id': u['id_usuario'],
+            'nombre': u['nombre'],
+            'email': u['email'],
+            'sala': u['sala'],
+            'estado': estado,
+            'registro': _fmt_fecha(u.get('fecha_registro')),
+            'vencimiento': _fmt_fecha(u.get('fecha_vencimiento')),
         })
+    activos = sum(1 for f in filas if f['estado'] in ('pago', 'gratis'))
+    trials = sum(1 for f in filas if f['estado'] == 'trial')
+    vencidas = sum(1 for f in filas if f['estado'] == 'vencida')
     hoy = datetime.now().date()
-    proximos = []
-    for user in usuarios:
-        vencimiento = user.get('fecha_vencimiento')
-        if not hasattr(vencimiento, 'strftime'):
+    limite = hoy + timedelta(days=7)
+    proximos_vencer = []
+    for u in usuarios:
+        fv = u.get('fecha_vencimiento')
+        if not hasattr(fv, 'strftime'):
             continue
-        vencimiento = vencimiento.date() if hasattr(vencimiento, 'date') else vencimiento
-        dias = (vencimiento - hoy).days
-        if 0 <= dias <= 7 and estado_cuenta(user) in ('pago', 'trial'):
-            proximos.append({'nombre': user['nombre'], 'vence': _fmt_fecha(vencimiento),
-                             'dias': dias, 'dias_txt': 'hoy' if dias == 0 else 'mañana' if dias == 1 else f'en {dias} días'})
-    proximos.sort(key=lambda item: item['dias'])
-    pagos = [{'id_pago': pago['id_pago'], 'monto': int(pago['monto'] or 0),
-              'tipo': pago['tipo'], 'fecha': _fmt_fecha(pago['fecha']),
-              'nombre': pago['nombre'], 'email': pago['email']} for pago in obtener_pagos()]
-    return jsonify(
-        usuarios=filas, pagos=pagos,
-        resumen={'activos': sum(row['estado'] in ('pago', 'gratis') for row in filas),
-                 'trials': sum(row['estado'] == 'trial' for row in filas),
-                 'vencidas': sum(row['estado'] == 'vencida' for row in filas),
-                 'ingresos_mes': _fmt_monto(obtener_ingresos_mes())},
-        proximos_vencer=proximos[:5], admin_id=session['user_id'])
+        fv_date = fv.date() if hasattr(fv, 'date') else fv
+        if not (hoy <= fv_date <= limite):
+            continue
+        if estado_cuenta(u) not in ('pago', 'trial'):
+            continue
+        dias = (fv_date - hoy).days
+        proximos_vencer.append({
+            'nombre': u['nombre'],
+            'vence': _fmt_fecha(fv),
+            'dias': dias,
+            'dias_txt': 'hoy' if dias == 0 else 'mañana' if dias == 1 else f'en {dias} días',
+        })
+    proximos_vencer.sort(key=lambda p: p['dias'])
+    proximos_vencer = proximos_vencer[:5]
+    return render_template('admin.html', filas=filas, pagos=pagos,
+                           ingresos_mes=_fmt_monto(ingresos_mes),
+                           activos=activos, trials=trials, vencidas=vencidas,
+                           proximos_vencer=proximos_vencer,
+                           admin_id=session['user_id'])
 
 # ─── PÁGINAS Y API: SOPORTE ──────────────
 
@@ -660,15 +678,7 @@ def api_cancelar_baja():
 @app.route('/api/me')
 @login_required
 def api_me():
-    user = obtener_usuario_por_id(session['user_id']) or {}
-    safe_fields = (
-        'id_usuario', 'nombre', 'email', 'sala', 'turno', 'plan',
-        'fecha_registro', 'fecha_vencimiento', 'tipo_plan', 'monto_plan',
-        'baja_solicitada_en', 'avatar_data', 'tutorial_completado',
-    )
-    profile = {key: user[key] for key in safe_fields if key in user}
-    profile['es_admin'] = es_admin()
-    return jsonify(profile)
+    return jsonify(obtener_usuario_por_id(session['user_id']))
 
 # ─── API: ALUMNOS ────────────────────────
 
@@ -735,12 +745,7 @@ def api_listar_actividades():
 @login_required
 def api_crear_actividad():
     data = request.json
-    id_unidad = data.get('id_unidad')
-    if id_unidad and not any(int(u['id_unidad']) == int(id_unidad)
-                             for u in obtener_unidades(session['user_id'], sala_activa_id())):
-        return jsonify(error='La unidad no pertenece a la sala activa.'), 400
-    uid = crear_actividad(session['user_id'], data['nombre'], data['area'], data.get('fecha'),
-                          id_unidad=id_unidad, id_sala=sala_activa_id())
+    uid = crear_actividad(session['user_id'], data['nombre'], data['area'], data.get('fecha'), id_sala=sala_activa_id())
     return jsonify(id_actividad=uid), 201
 
 @app.route('/api/actividades/<int:id_actividad>', methods=['PUT'])
@@ -1048,22 +1053,25 @@ def api_cambiar_contraseña():
 @app.route('/config')
 @login_required
 def config_page():
-    return react_app_shell()
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('config.html')
 
 @app.route('/cuenta')
 @login_required
 def cuenta_page():
-    return react_app_shell()
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('cuenta.html', baja_pendiente=bool(user and user.get('baja_solicitada_en')))
 
 @app.route('/perfil')
 @login_required
 def perfil_page():
-    return react_app_shell()
+    user = obtener_usuario_por_id(session['user_id'])
+    return render_template('perfil.html', user=user, es_admin=es_admin())
 
 @app.route('/salas')
 @login_required
 def salas_page():
-    return react_app_shell()
+    return render_template('salas.html')
 
 @app.route('/api/salas', methods=['GET'])
 @login_required
@@ -1182,11 +1190,11 @@ def reset_page(token):
     user = obtener_usuario_por_token(token)
     if not user:
         return '<div style="padding:2rem;text-align:center"><h3>🔗 Token inválido o expirado</h3><p>Pedí un nuevo reset en <a href="/login">iniciar sesión</a>.</p></div>'
-    return react_app_shell()
+    return render_template('reset.html', token=token)
 
 @app.route('/forgot')
 def forgot_page():
-    return react_app_shell()
+    return render_template('forgot.html')
 
 # ─── API: UNIDADES ────────────────────────
 
