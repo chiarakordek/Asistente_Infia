@@ -2095,9 +2095,9 @@ body.texto-grande .page-title { font-size: clamp(1.65rem, 3.5vw, 2rem); }
 .account-close-trigger[aria-expanded="true"] span { transform: rotate(180deg); }
 .account-close-trigger span { transition: transform .2s ease; }
 .account-close-panel[hidden] { display: none; }
-.account-close-summary { display: grid; gap: .25rem; padding: .75rem .85rem; margin-bottom: .9rem; border-left: 3px solid #8c7de2; border-radius: 0 12px 12px 0; background: #f8f6ff; }
-.account-close-summary strong { color: #49416d; font-size: .84rem; font-weight: 800; }
-.account-close-summary p { margin: 0; color: #706b82; font-size: .78rem; line-height: 1.5; }
+.account-close-summary { padding: .55rem .75rem; margin-bottom: .75rem; border-left: 3px solid #8c7de2; border-radius: 0 10px 10px 0; background: #f8f6ff; }
+.account-close-summary p { margin: 0; color: #706b82; font-size: .76rem; line-height: 1.45; }
+.account-close-summary strong { color: #49416d; font-weight: 800; }
 .account-close-panel .form-label { color: #4f4a63; font-size: .82rem; font-weight: 700; }
 .account-close-panel .form-label span { color: #888398; font-weight: 500; }
 .account-close-consent { display: flex; align-items: flex-start; gap: .6rem; padding: .75rem; margin-bottom: .75rem; border: 1px solid #ebe8f2; border-radius: 12px; background: #fff; color: #625e72; font-size: .77rem; line-height: 1.45; cursor: pointer; }
@@ -2171,4 +2171,30 @@ body.texto-grande .page-title { font-size: clamp(1.65rem, 3.5vw, 2rem); }
   .auth-shell-login .auth-story h1 { max-width: 24ch; font-size: clamp(1.55rem, 7vw, 2rem); }
   .auth-shell-login .auth-story-copy { margin-top: .45rem; }
   .auth-shell-login .auth-preview { width: 100%; }
+}
+
+/* En el teléfono, el acceso es el protagonista y la explicación queda como un vistazo breve. */
+@media (max-width: 700px) {
+  .auth-entry-page { display: block; min-height: 100dvh; padding: max(.75rem, env(safe-area-inset-top)) 0 max(1rem, env(safe-area-inset-bottom)); }
+  .auth-shell-login { display: flex; flex-direction: column; align-items: stretch; width: min(100% - 1.25rem, 440px); gap: .75rem; }
+  .auth-shell-login .auth-mobile-brand { align-self: flex-start; margin: 0 .2rem .15rem; }
+  .auth-shell-login .auth-form-card { border-radius: 22px; box-shadow: 0 12px 36px rgba(53,44,119,.08); }
+  .auth-shell-login .auth-form-card .card-body { padding: 1.15rem 1rem 1rem; }
+  .auth-shell-login .auth-form-kicker { display: none; }
+  .auth-shell-login .auth-form-heading { margin-bottom: .9rem; }
+  .auth-shell-login .auth-form-heading h2 { font-size: 1.55rem; }
+  .auth-shell-login .auth-form-heading > p { font-size: .82rem; }
+  .auth-shell-login .auth-form-card .form-control { min-height: 47px; }
+  .auth-shell-login .auth-submit { min-height: 48px !important; margin-top: .85rem; }
+  .auth-shell-login .auth-story { width: 100%; max-width: none; padding: .1rem 0 0; }
+  .auth-shell-login .auth-story .auth-kicker,
+  .auth-shell-login .auth-story h1,
+  .auth-shell-login .auth-story-copy,
+  .auth-shell-login .auth-story-steps,
+  .auth-shell-login .auth-story-note { display: none; }
+  .auth-shell-login .auth-preview { padding: .75rem .85rem; border-radius: 16px; background: rgba(255,255,255,.7); box-shadow: none; }
+  .auth-shell-login .auth-preview-top { font-size: .76rem; }
+  .auth-shell-login .auth-preview-top small { font-size: .68rem; }
+  .auth-shell-login .auth-preview > p { margin: .5rem 0; font-size: .8rem; line-height: 1.45; }
+  .auth-shell-login .auth-preview-bottom { padding-top: .5rem; font-size: .68rem; }
 }
