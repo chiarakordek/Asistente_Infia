@@ -2095,12 +2095,9 @@ body.texto-grande .page-title { font-size: clamp(1.65rem, 3.5vw, 2rem); }
 .account-close-trigger[aria-expanded="true"] span { transform: rotate(180deg); }
 .account-close-trigger span { transition: transform .2s ease; }
 .account-close-panel[hidden] { display: none; }
-.account-close-timeline { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; margin-bottom: 1rem; }
-.account-close-timeline > div { display: flex; align-items: flex-start; gap: .55rem; min-width: 0; padding: .65rem; border-radius: 12px; background: #f8f7fc; }
-.account-close-timeline > div > span { display: grid; place-items: center; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; background: #eeebff; color: #5e53c3; font-size: .72rem; font-weight: 850; }
-.account-close-timeline p { display: grid; gap: .12rem; margin: 0; }
-.account-close-timeline strong { color: #423d57; font-size: .74rem; }
-.account-close-timeline small { color: #79758a; font-size: .7rem; line-height: 1.4; }
+.account-close-summary { display: grid; gap: .25rem; padding: .75rem .85rem; margin-bottom: .9rem; border-left: 3px solid #8c7de2; border-radius: 0 12px 12px 0; background: #f8f6ff; }
+.account-close-summary strong { color: #49416d; font-size: .84rem; font-weight: 800; }
+.account-close-summary p { margin: 0; color: #706b82; font-size: .78rem; line-height: 1.5; }
 .account-close-panel .form-label { color: #4f4a63; font-size: .82rem; font-weight: 700; }
 .account-close-panel .form-label span { color: #888398; font-weight: 500; }
 .account-close-consent { display: flex; align-items: flex-start; gap: .6rem; padding: .75rem; margin-bottom: .75rem; border: 1px solid #ebe8f2; border-radius: 12px; background: #fff; color: #625e72; font-size: .77rem; line-height: 1.45; cursor: pointer; }
@@ -2127,8 +2124,6 @@ body.texto-grande .page-title { font-size: clamp(1.65rem, 3.5vw, 2rem); }
   .subscription-plan-facts strong { font-size: .8rem; }
   .plan-includes ul { grid-template-columns: 1fr; }
   .account-close-card { padding: .9rem; margin-top: 1.7rem; }
-  .account-close-timeline { grid-template-columns: 1fr; }
-  .account-close-timeline > div { align-items: center; }
   .account-close-trigger, .account-close-panel .btn { width: 100%; }
   .auth-preview-transcription { min-height: 4.6em; }
 }

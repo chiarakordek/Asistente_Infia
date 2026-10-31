@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="/static/icons/iconoinfia.png">
   <link rel="icon" type="image/png" href="/static/icons/iconoinfia.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css?v=41">
+  <link rel="stylesheet" href="/static/css/styles.css?v=42">
 </head>
 <body>
   {% set active_page = 'perfil' %}{% include '_nav.html' %}
@@ -35,15 +35,14 @@
         <div class="account-close-pending"><span class="account-close-pending-mark" aria-hidden="true">…</span><div><strong>Eliminación programada</strong><p>La cuenta está suspendida. Si no la recuperás, tus datos se eliminarán al terminar el plazo de 7 días.</p></div></div>
         <button type="button" class="btn btn-outline-primary" id="btnCancelarBaja">Cancelar solicitud y conservar mi cuenta</button>
         {% else %}
-        <div class="account-close-timeline" aria-label="Cómo funciona la eliminación">
-          <div><span>1</span><p><strong>Ahora</strong><small>Tu cuenta queda suspendida.</small></p></div>
-          <div><span>2</span><p><strong>Durante 7 días</strong><small>Podés cancelar la solicitud.</small></p></div>
-          <div><span>3</span><p><strong>Al finalizar el plazo</strong><small>Se eliminan tus datos asociados.</small></p></div>
+        <div class="account-close-summary">
+          <strong>Tenés 7 días para cambiar de opinión.</strong>
+          <p>Al solicitarlo, tu cuenta se suspende. Si no cancelás la solicitud dentro de ese plazo, se eliminarán tus datos asociados.</p>
         </div>
         <form id="formBaja">
           <label class="form-label" for="motivoBaja">Si querés, contanos el motivo <span>(opcional)</span></label>
           <textarea id="motivoBaja" class="form-control mb-3" rows="2" maxlength="1000" placeholder="Tu comentario nos ayuda a mejorar Infia"></textarea>
-          <label class="account-close-consent"><input type="checkbox" id="confirmarBaja"><span>Entiendo que mi cuenta se suspenderá ahora y que, si no la recupero en 7 días, se eliminarán mis datos.</span></label>
+          <label class="account-close-consent"><input type="checkbox" id="confirmarBaja"><span>Confirmo que quiero suspender mi cuenta y entiendo que se eliminará si no cancelo la solicitud en 7 días.</span></label>
           <div id="bajaError" class="alert alert-danger d-none" role="alert"></div>
           <button type="submit" class="btn btn-danger" id="btnBaja" disabled>Solicitar eliminación de mi cuenta</button>
         </form>
