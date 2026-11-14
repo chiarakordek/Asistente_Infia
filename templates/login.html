@@ -47,16 +47,16 @@
           <h2 id="loginTitle">Qué bueno verte</h2>
           <p>Iniciá sesión para seguir con tus salas y observaciones.</p>
         </div>
-        <form id="loginForm" method="post" action="/login">
+        <form id="loginForm">
           <div class="auth-field mb-3">
             <label class="form-label" for="email">Email</label>
-            <input type="email" id="email" name="email" class="form-control" placeholder="tu@email.com" value="{{ email or '' }}" required autocomplete="email" inputmode="email">
+            <input type="email" id="email" name="email" class="form-control" placeholder="tu@email.com" required autocomplete="email" inputmode="email">
           </div>
           <div class="auth-field mb-2">
             <label class="form-label" for="password">Contraseña</label>
             <input type="password" id="password" name="password" class="form-control" placeholder="Tu contraseña" required autocomplete="current-password">
           </div>
-          <div id="errorMsg" class="alert alert-danger {% if not error %}d-none {% endif %}py-2 small" role="alert" aria-live="polite">{{ error or '' }}</div>
+          <div id="errorMsg" class="alert alert-danger d-none py-2 small" role="alert" aria-live="polite"></div>
           <button type="submit" class="btn btn-primary auth-submit w-100">Entrar a mi aula <span aria-hidden="true">→</span></button>
         </form>
         <a href="/forgot" class="auth-forgot">¿Olvidaste tu contraseña?</a>
@@ -71,7 +71,7 @@
     </section>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/static/js/app.js?v=33"></script>
+  <script src="/static/js/app.js?v=31"></script>
   <script src="/static/js/login-typewriter.js?v=1"></script>
 </body>
 </html>
