@@ -5,12 +5,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import json
+import hmac
 import base64
 import binascii
 import functools
 from datetime import date
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Flask, request, jsonify, session, redirect, render_template, send_from_directory
+from flask import Flask, g, request, jsonify, session, redirect, render_template, send_from_directory
 
 # ─── Rutas base ───────────────────────────
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -28,33 +29,55 @@ if not os.environ.get('FLASK_DEBUG'):
 AUDIO_DIR = os.path.join(app.static_folder, 'audios')
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
-# ─── Seguridad: rate limiting simple ────
+# Render atiende los pedidos detrás de un proxy: sin esto, remote_addr es la IP
+# del proxy y el límite de intentos bloquearía a todas las usuarias a la vez.
+from werkzeug.middleware.proxy_fix import ProxyFix
+_PROXY_HOPS = int(os.environ.get('PROXY_HOPS', '1'))
+if _PROXY_HOPS > 0:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=_PROXY_HOPS, x_proto=_PROXY_HOPS)
+
+# Audios de hasta ~25 MB (límite de Whisper) más margen para el formulario.
+app.config['MAX_CONTENT_LENGTH'] = 26 * 1024 * 1024
+
+# ─── Seguridad: rate limiting ────────────
+# Se guarda en la base para que valga igual en todos los workers de gunicorn.
+# Si la base no responde, se usa un contador en memoria como respaldo.
 from collections import defaultdict
 from datetime import datetime, timedelta
 import re
-_login_intentos = defaultdict(list)
-_reset_intentos = defaultdict(list)
+_intentos_memoria = defaultdict(list)
 _MAX_INTENTOS = 5
 _MAX_RESETS = 3
 _VENTANA_MINUTOS = 15
 
-def revisar_rate_limit(ip):
+def _rate_limit_memoria(clave, maximo):
     ahora = datetime.now()
-    intentos = [t for t in _login_intentos[ip] if ahora - t < timedelta(minutes=_VENTANA_MINUTOS)]
-    _login_intentos[ip] = intentos
-    if len(intentos) >= _MAX_INTENTOS:
+    intentos = [t for t in _intentos_memoria[clave] if ahora - t < timedelta(minutes=_VENTANA_MINUTOS)]
+    _intentos_memoria[clave] = intentos
+    if len(intentos) >= maximo:
         return False
-    _login_intentos[ip].append(ahora)
+    intentos.append(ahora)
     return True
 
+def _rate_limit(clave, maximo):
+    try:
+        return registrar_intento_acceso(clave, maximo, _VENTANA_MINUTOS)
+    except Exception:
+        app.logger.exception('Rate limit en base no disponible; uso memoria')
+        return _rate_limit_memoria(clave, maximo)
+
+def revisar_rate_limit(ip):
+    return _rate_limit(f'login:{ip}', _MAX_INTENTOS)
+
 def revisar_rate_limit_reset(ip):
-    ahora = datetime.now()
-    intentos = [t for t in _reset_intentos[ip] if ahora - t < timedelta(minutes=_VENTANA_MINUTOS)]
-    _reset_intentos[ip] = intentos
-    if len(intentos) >= _MAX_RESETS:
-        return False
-    _reset_intentos[ip].append(ahora)
-    return True
+    return _rate_limit(f'reset:{ip}', _MAX_RESETS)
+
+def limpiar_rate_limit(ip):
+    _intentos_memoria.pop(f'login:{ip}', None)
+    try:
+        limpiar_intentos_acceso(f'login:{ip}')
+    except Exception:
+        app.logger.exception('No se pudieron limpiar los intentos de login')
 
 def validar_contraseña(pw):
     """Valida que la contraseña cumpla la política de seguridad."""
@@ -85,7 +108,8 @@ def seguridad_headers(resp):
 # ─── Imports del backend ─────────────────
 from src.db import (
     crear_usuario, obtener_usuario_por_email, obtener_usuario_por_id,
-    registrar_alumno, obtener_alumnos, eliminar_alumno,
+    registrar_alumno, obtener_alumnos, eliminar_alumno, actualizar_genero_alumno,
+    registrar_intento_acceso, limpiar_intentos_acceso,
     crear_actividad, crear_actividades_multi, obtener_actividades_dia,
     eliminar_actividad, actualizar_actividad,
     guardar_observacion, eliminar_observacion, eliminar_observaciones_multi,
@@ -118,11 +142,32 @@ from src.db import inicializar_bd
 inicializar_bd()
 
 # ─── Helpers ─────────────────────────────
+# Cache por pedido: varias partes del mismo request (hooks, context processor y
+# la vista) necesitan el usuario y sus salas; así se consultan una sola vez.
+def usuario_actual():
+    uid = session.get('user_id')
+    if not uid:
+        return None
+    if g.get('_usuario_id') != uid:
+        g._usuario = obtener_usuario_por_id(uid)
+        g._usuario_id = uid
+    return g._usuario
+
+def salas_de(user_id):
+    cache = g.setdefault('_salas', {})
+    if user_id not in cache:
+        cache[user_id] = obtener_salas_docente(user_id)
+    return cache[user_id]
+
+def invalidar_cache_pedido():
+    for clave in ('_usuario', '_usuario_id', '_salas'):
+        g.pop(clave, None)
+
 def sala_activa_id(user_id=None):
     user_id = user_id or session.get('user_id')
     if not user_id:
         return None
-    salas = obtener_salas_docente(user_id)
+    salas = salas_de(user_id)
     if not salas:
         return None
     activos = {int(sala['id_sala']) for sala in salas}
@@ -136,7 +181,7 @@ def sala_activa_id(user_id=None):
 def contexto_salas():
     if not session.get('user_id'):
         return {}
-    salas = obtener_salas_docente(session['user_id'])
+    salas = salas_de(session['user_id'])
     actual_id = sala_activa_id(session['user_id'])
     actual = next((s for s in salas if int(s['id_sala']) == actual_id), None)
     return {'salas_docente': salas, 'sala_actual': actual}
@@ -157,23 +202,22 @@ def login_required(f):
         return f(*a, **kw)
     return wrap
 
-# ─── Inicialización perezosa de BD ──────
-_bd_inicializada = False
-
-@app.before_request
-def asegurar_bd():
-    global _bd_inicializada
-    if not _bd_inicializada:
-        try:
-            inicializar_bd()
-            _bd_inicializada = True
-        except Exception:
-            pass  # Reintenta en el próximo request
+# ─── Bajas programadas ───────────────────
+# El cron de Render (scripts/procesar_bajas.py) es el mecanismo principal.
+# Como respaldo, cada worker revisa como mucho una vez por hora, en lugar de
+# consultar la base en cada pedido.
+_INTERVALO_BAJAS = timedelta(hours=1)
+_ultima_revision_bajas = None
 
 @app.before_request
 def procesar_bajas_programadas():
+    global _ultima_revision_bajas
     if request.path.startswith('/static'):
         return
+    ahora = datetime.now()
+    if _ultima_revision_bajas and ahora - _ultima_revision_bajas < _INTERVALO_BAJAS:
+        return
+    _ultima_revision_bajas = ahora
     try:
         for baja in obtener_bajas_vencidas():
             for ruta in eliminar_usuario_completamente(baja['id_usuario']):
@@ -181,25 +225,29 @@ def procesar_bajas_programadas():
                     audio_path = os.path.join(AUDIO_DIR, os.path.basename(ruta))
                     if os.path.exists(audio_path):
                         os.remove(audio_path)
-            if session.get('user_id') == baja['id_usuario']:
-                session.clear()
     except Exception:
-        pass
+        app.logger.exception('Falló la revisión de bajas programadas')
 
 @app.before_request
 def bloquear_cuenta_en_baja():
     if 'user_id' not in session or request.path.startswith('/static'):
         return
-    if request.path in ('/config', '/cuenta', '/api/usuario/baja/cancelar', '/api/usuario/baja', '/api/logout'):
-        return
     try:
-        user = obtener_usuario_por_id(session['user_id'])
-        if user and user.get('baja_solicitada_en'):
-            if request.is_json or request.path.startswith('/api/'):
-                return jsonify(error='Tu cuenta está suspendida y pendiente de eliminación.'), 423
-            return redirect('/config')
+        user = usuario_actual()
     except Exception:
         return
+    if user is None:
+        # La cuenta ya no existe (por ejemplo, se completó la baja): se cierra
+        # la sesión y login_required se encarga de redirigir.
+        session.clear()
+        invalidar_cache_pedido()
+        return
+    if request.path in ('/config', '/cuenta', '/api/usuario/baja/cancelar', '/api/usuario/baja', '/api/logout'):
+        return
+    if user.get('baja_solicitada_en'):
+        if request.is_json or request.path.startswith('/api/'):
+            return jsonify(error='Tu cuenta está suspendida y pendiente de eliminación.'), 423
+        return redirect('/config')
 
 @app.before_request
 def verificar_suscripcion():
@@ -268,7 +316,7 @@ def terminos_page():
 @app.route('/dashboard')
 @login_required
 def dashboard_page():
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     repetir_tutorial = request.args.get('tutorial') == '1'
     tutorial_automatico = repetir_tutorial or not bool(user.get('tutorial_completado'))
     if request.args.get('registrar'):
@@ -286,7 +334,7 @@ def api_tutorial_completar():
 @app.route('/planificacion')
 @login_required
 def planificacion_page():
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     id_sala = sala_activa_id()
     unidades = obtener_unidades(session['user_id'], id_sala)
     seccion = request.args.get('seccion', 'indicadores')
@@ -317,7 +365,7 @@ def alumno_page(id_alumno):
     alumno = next((a for a in alumnos if a['id_alumno'] == id_alumno), None)
     if not alumno:
         return redirect('/dashboard')
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     return render_template('alumno.html', alumno=alumno, user=user)
 
 # ─── SUSCRIPCIÓN ─────────────────────────
@@ -330,7 +378,7 @@ def _fmt_fecha(v):
 @app.route('/suscripcion')
 @login_required
 def suscripcion_page():
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     s = obtener_suscripcion(session['user_id'])
     estado = estado_cuenta(s)
     gratis = es_gratis(user.get('email'))
@@ -353,13 +401,14 @@ def api_suscripcion_crear():
     tipo = data.get('tipo') or 'mensual'
     if tipo not in ('mensual', 'anual'):
         return jsonify(error='Tipo de plan inválido'), 400
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     if es_gratis(user.get('email')):
         return jsonify(error='Tu cuenta está exenta de pago'), 403
     try:
         mp_id, init_point = crear_preapproval(user, tipo)
-    except Exception as e:
-        return jsonify(error='Error al crear el pago: ' + str(e)), 500
+    except Exception:
+        app.logger.exception('Error al crear el pago en Mercado Pago')
+        return jsonify(error='No pudimos iniciar el pago. Intentá de nuevo en unos minutos.'), 500
     if not init_point:
         return jsonify(error='No se pudo iniciar el pago'), 500
     return jsonify(ok=True, init_point=init_point)
@@ -377,7 +426,9 @@ def api_suscripcion_estado():
 @app.route('/webhook/mercadopago', methods=['POST', 'GET'])
 def webhook_mercadopago():
     secret = os.environ.get('MP_WEBHOOK_SECRET', '')
-    if request.args.get('secret') != secret:
+    # Igual se verifica cada notificación consultando la API de Mercado Pago;
+    # el secreto es una barrera extra cuando está configurado.
+    if secret and not hmac.compare_digest(request.args.get('secret') or '', secret):
         return jsonify(error='no autorizado'), 403
     tipo = request.args.get('type') or 'preapproval'
     mp_id = request.args.get('data.id')
@@ -393,7 +444,7 @@ def webhook_mercadopago():
     try:
         procesar_notificacion(mp_id, tipo)
     except Exception:
-        pass
+        app.logger.exception('Falló el procesamiento de la notificación de Mercado Pago %s', mp_id)
     return jsonify(ok=True)
 
 # ─── ADMIN ────────────────────────────────
@@ -404,7 +455,7 @@ def es_admin():
     admin_email = os.environ.get('ADMIN_EMAIL', '')
     if not admin_email:
         return False
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     return bool(user and (user.get('email') or '').lower() == admin_email.lower())
 
 def _fmt_monto(n):
@@ -581,7 +632,7 @@ def api_admin_reset(id_usuario):
     reset_link = f'{base}/reset/{token}'
     from src.emailer import enviar_email_async
     enviar_email_async(user['email'], 'Recuperá tu contraseña de Infia',
-                       _mail_reset(user['nombre'], reset_link))
+                       _mail_reset(user['nombre'], reset_link, vigencia='24 horas'))
     return jsonify(ok=True, mensaje=f'Link enviado por mail a {user["email"]}', reset_link=reset_link)
 
 # ─── API: AUTH ───────────────────────────
@@ -606,13 +657,14 @@ def api_login():
         session['user_id'] = user['id_usuario']
         session.pop('id_sala_activa', None)
         sala_activa_id(user['id_usuario'])
-        _login_intentos[ip] = []
+        limpiar_rate_limit(ip)
         admin_email = os.environ.get('ADMIN_EMAIL', '')
         es_admin_login = bool(admin_email and (user['email'] or '').lower() == admin_email.lower())
         return jsonify(ok=True, nombre=user['nombre'],
                        destino='/admin' if es_admin_login else '/dashboard')
-    except Exception as e:
-        return jsonify(error='Error interno: ' + str(e)), 500
+    except Exception:
+        app.logger.exception('Error en login')
+        return jsonify(error='Ocurrió un error interno. Intentá de nuevo en unos minutos.'), 500
 
 @app.route('/api/register', methods=['POST'])
 def api_register():
@@ -660,7 +712,7 @@ def api_solicitar_baja():
     motivo = (data.get('motivo') or '').strip()
     if len(motivo) > 1000:
         return jsonify(error='El motivo no puede superar los 1000 caracteres'), 400
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     if user.get('baja_solicitada_en'):
         return jsonify(error='La baja ya fue solicitada'), 400
     solicitar_baja_usuario(session['user_id'], motivo)
@@ -669,16 +721,20 @@ def api_solicitar_baja():
 @app.route('/api/usuario/baja/cancelar', methods=['POST'])
 @login_required
 def api_cancelar_baja():
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     if not user.get('baja_solicitada_en'):
         return jsonify(error='No hay una baja pendiente'), 400
     cancelar_baja_usuario(session['user_id'])
     return jsonify(ok=True)
 
+CAMPOS_PUBLICOS_USUARIO = ('id_usuario', 'nombre', 'email', 'sala', 'turno', 'plan',
+                           'fecha_vencimiento', 'tipo_plan', 'avatar_data', 'tutorial_completado')
+
 @app.route('/api/me')
 @login_required
 def api_me():
-    return jsonify(obtener_usuario_por_id(session['user_id']))
+    user = usuario_actual() or {}
+    return jsonify({k: user.get(k) for k in CAMPOS_PUBLICOS_USUARIO})
 
 # ─── API: ALUMNOS ────────────────────────
 
@@ -690,9 +746,24 @@ def api_listar_alumnos():
 @app.route('/api/alumnos', methods=['POST'])
 @login_required
 def api_crear_alumno():
-    data = request.json
-    uid = registrar_alumno(session['user_id'], data['nombre'], data['apellido'], sala_activa_id())
+    data = request.get_json(silent=True) or {}
+    nombre = (data.get('nombre') or '').strip()
+    apellido = (data.get('apellido') or '').strip()
+    if not nombre or not apellido:
+        return jsonify(error='Completá nombre y apellido'), 400
+    uid = registrar_alumno(session['user_id'], nombre, apellido, sala_activa_id(), data.get('genero'))
     return jsonify(id_alumno=uid), 201
+
+@app.route('/api/alumnos/<int:id_alumno>/genero', methods=['PUT'])
+@login_required
+def api_genero_alumno(id_alumno):
+    genero = (request.get_json(silent=True) or {}).get('genero')
+    if genero not in ('F', 'M', None, ''):
+        return jsonify(error='Valor inválido'), 400
+    if not any(a['id_alumno'] == id_alumno for a in obtener_alumnos(session['user_id'], sala_activa_id())):
+        return jsonify(error='Alumno no encontrado'), 404
+    actualizar_genero_alumno(id_alumno, session['user_id'], genero or None, sala_activa_id())
+    return jsonify(ok=True)
 
 @app.route('/api/alumnos/multi', methods=['POST'])
 @login_required
@@ -715,8 +786,9 @@ def api_crear_alumnos_multi():
 def api_eliminar_alumno(id_alumno):
     try:
         eliminar_alumno(id_alumno, session['user_id'], sala_activa_id())
-    except Exception as e:
-        return jsonify(error=str(e)), 500
+    except Exception:
+        app.logger.exception('Error en %s', request.path)
+        return jsonify(error='Ocurrió un error interno. Intentá de nuevo.'), 500
     return jsonify(ok=True)
 
 @app.route('/api/alumnos/delete-multi', methods=['POST'])
@@ -729,8 +801,9 @@ def api_eliminar_alumnos_multi():
     try:
         for aid in ids:
             eliminar_alumno(aid, session['user_id'], sala_activa_id())
-    except Exception as e:
-        return jsonify(error=str(e)), 500
+    except Exception:
+        app.logger.exception('Error en %s', request.path)
+        return jsonify(error='Ocurrió un error interno. Intentá de nuevo.'), 500
     return jsonify(eliminados=len(ids))
 
 # ─── API: ACTIVIDADES ────────────────────
@@ -771,8 +844,9 @@ def api_eliminar_actividades_multi():
     try:
         for aid in ids:
             eliminar_actividad(aid, session['user_id'], sala_activa_id())
-    except Exception as e:
-        return jsonify(error=str(e)), 500
+    except Exception:
+        app.logger.exception('Error en %s', request.path)
+        return jsonify(error='Ocurrió un error interno. Intentá de nuevo.'), 500
     return jsonify(eliminados=len(ids))
 
 @app.route('/api/actividades/multi', methods=['POST'])
@@ -865,7 +939,9 @@ def api_subir_audio():
         return jsonify(error='Alumno no encontrado en la sala activa.'), 404
     if id_actividad and not any(a['id_actividad'] == id_actividad for a in obtener_actividades_dia(session['user_id'], id_sala=sala_activa_id())):
         return jsonify(error='El indicador no pertenece a la sala activa.'), 400
-    ext = os.path.splitext(f.filename)[1] or '.webm'
+    ext = os.path.splitext(f.filename or '')[1].lower()
+    if ext not in ('.webm', '.ogg', '.oga', '.mp3', '.m4a', '.mp4', '.wav', '.mpeg', '.mpga', '.flac'):
+        ext = '.webm'
     audio_filename = f'audio_{session["user_id"]}_{os.urandom(4).hex()}{ext}'
     path = os.path.join(AUDIO_DIR, audio_filename)
     f.save(path)
@@ -931,8 +1007,9 @@ def api_renombrar_area(id_area):
 def api_eliminar_area(id_area):
     try:
         eliminar_area(session['user_id'], id_area, sala_activa_id())
-    except Exception as e:
-        return jsonify(error=str(e)), 500
+    except Exception:
+        app.logger.exception('Error en %s', request.path)
+        return jsonify(error='Ocurrió un error interno. Intentá de nuevo.'), 500
     return jsonify(ok=True)
 
 @app.route('/api/areas/delete-multi', methods=['POST'])
@@ -945,8 +1022,9 @@ def api_eliminar_areas_multi():
     try:
         for aid in ids:
             eliminar_area(session['user_id'], aid, sala_activa_id())
-    except Exception as e:
-        return jsonify(error=str(e)), 500
+    except Exception:
+        app.logger.exception('Error en %s', request.path)
+        return jsonify(error='Ocurrió un error interno. Intentá de nuevo.'), 500
     return jsonify(eliminados=len(ids))
 
 @app.route('/api/areas/rename', methods=['POST'])
@@ -969,7 +1047,7 @@ def api_rename_area():
 
 # ─── API: CAMBIO / RESET DE CONTRASEÑA ────
 
-def _mail_reset(nombre, reset_link):
+def _mail_reset(nombre, reset_link, vigencia='1 hora'):
     return f'''<!DOCTYPE html>
 <html lang="es">
 <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f6f8fb">
@@ -978,7 +1056,7 @@ def _mail_reset(nombre, reset_link):
       <h2 style="margin:0 0 12px;color:#1e293b">Hola {nombre}</h2>
       <p style="margin:0 0 16px;color:#475569;font-size:15px;line-height:1.5">Recibimos una solicitud para recuperar tu contraseña de <strong>Infia</strong>. Hacé clic en el botón para crear una nueva:</p>
       <a href="{reset_link}" style="display:inline-block;background:#0d6efd;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600">Crear nueva contraseña</a>
-      <p style="margin:16px 0 0;color:#475569;font-size:14px;line-height:1.5">El link vence en <strong>1 hora</strong>. Si el botón no funciona, copiá esta dirección en tu navegador:</p>
+      <p style="margin:16px 0 0;color:#475569;font-size:14px;line-height:1.5">El link vence en <strong>{vigencia}</strong>. Si el botón no funciona, copiá esta dirección en tu navegador:</p>
       <p style="margin:8px 0 0;word-break:break-all"><code style="color:#0d6efd;font-size:13px">{reset_link}</code></p>
       <hr style="border:none;border-top:1px solid #eef2f7;margin:24px 0">
       <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.5">Si no fuiste vos quien pidió el reset, ignorá este mail: tu contraseña no cambió.</p>
@@ -1039,7 +1117,7 @@ def api_cambiar_contraseña():
     errores_pw = validar_contraseña(nueva)
     if errores_pw:
         return jsonify(error='La nueva contraseña debe tener ' + ', '.join(errores_pw)), 400
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     if not check_password_hash(user['contraseña'], actual):
         return jsonify(error='La contraseña actual no es correcta'), 401
     if nueva == actual:
@@ -1053,19 +1131,19 @@ def api_cambiar_contraseña():
 @app.route('/config')
 @login_required
 def config_page():
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     return render_template('config.html')
 
 @app.route('/cuenta')
 @login_required
 def cuenta_page():
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     return render_template('cuenta.html', baja_pendiente=bool(user and user.get('baja_solicitada_en')))
 
 @app.route('/perfil')
 @login_required
 def perfil_page():
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     return render_template('perfil.html', user=user, es_admin=es_admin())
 
 @app.route('/salas')
@@ -1077,7 +1155,7 @@ def salas_page():
 @login_required
 def api_listar_salas():
     activa = sala_activa_id()
-    return jsonify([{**s, 'activa': int(s['id_sala']) == activa} for s in obtener_salas_docente(session['user_id'])])
+    return jsonify([{**s, 'activa': int(s['id_sala']) == activa} for s in salas_de(session['user_id'])])
 
 @app.route('/api/salas', methods=['POST'])
 @login_required
@@ -1090,9 +1168,10 @@ def api_crear_sala():
         return jsonify(error='Completá el nombre, la sala y el turno.'), 400
     if len(nombre) > 80:
         return jsonify(error='El nombre de la sala no puede superar los 80 caracteres.'), 400
-    if any(s['nombre'].casefold() == nombre.casefold() for s in obtener_salas_docente(session['user_id'])):
+    if any(s['nombre'].casefold() == nombre.casefold() for s in salas_de(session['user_id'])):
         return jsonify(error='Ya tenés una sala con ese nombre.'), 409
     id_sala = crear_sala_docente(session['user_id'], nombre, sala, turno)
+    invalidar_cache_pedido()
     return jsonify(ok=True, id_sala=id_sala), 201
 
 @app.route('/api/salas/<int:id_sala>', methods=['PUT'])
@@ -1107,9 +1186,10 @@ def api_actualizar_sala(id_sala):
     if not nombre or not sala or turno not in ('Mañana', 'Tarde') or len(nombre) > 80:
         return jsonify(error='Revisá el nombre, la sala y el turno.'), 400
     if any(int(s['id_sala']) != id_sala and s['nombre'].casefold() == nombre.casefold()
-           for s in obtener_salas_docente(session['user_id'])):
+           for s in salas_de(session['user_id'])):
         return jsonify(error='Ya tenés una sala con ese nombre.'), 409
     actualizar_sala_docente(id_sala, session['user_id'], nombre, sala, turno)
+    invalidar_cache_pedido()
     return jsonify(ok=True)
 
 @app.route('/api/salas/<int:id_sala>', methods=['DELETE'])
@@ -1117,7 +1197,9 @@ def api_actualizar_sala(id_sala):
 def api_eliminar_sala(id_sala):
     if not obtener_sala_docente(id_sala, session['user_id']):
         return jsonify(error='No encontramos esa sala.'), 404
-    if not eliminar_sala_docente(id_sala, session['user_id']):
+    eliminada = eliminar_sala_docente(id_sala, session['user_id'])
+    invalidar_cache_pedido()
+    if not eliminada:
         return jsonify(error='Solo podés eliminar una sala vacía y si conservás al menos una sala.'), 409
     if session.get('id_sala_activa') == id_sala:
         session.pop('id_sala_activa', None)
@@ -1139,7 +1221,7 @@ def api_activar_sala():
 @login_required
 def api_actualizar_perfil():
     data = request.json
-    user = obtener_usuario_por_id(session['user_id'])
+    user = usuario_actual()
     nombre = (data.get('nombre') or user['nombre']).strip()
     sala = data.get('sala') or user['sala']
     turno = data.get('turno') or user['turno']
@@ -1233,8 +1315,9 @@ def api_eliminar_unidades_multi():
     try:
         for uid in ids:
             eliminar_unidad(uid, session['user_id'], sala_activa_id())
-    except Exception as e:
-        return jsonify(error=str(e)), 500
+    except Exception:
+        app.logger.exception('Error en %s', request.path)
+        return jsonify(error='Ocurrió un error interno. Intentá de nuevo.'), 500
     return jsonify(eliminados=len(ids))
 
 # ─── API: STATS ───────────────────────────
@@ -1335,6 +1418,10 @@ def api_actualizar_informe(id_alumno):
         return jsonify(error='El contenido no puede estar vacío'), 400
     actualizar_informe(id_alumno, contenido)
     return jsonify(ok=True, contenido=contenido)
+
+@app.errorhandler(413)
+def archivo_demasiado_grande(_e):
+    return jsonify(error='El archivo es demasiado grande (máximo 25 MB).'), 413
 
 # ─── PWA & STATIC ────────────────────────
 
