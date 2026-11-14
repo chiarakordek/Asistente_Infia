@@ -42,15 +42,7 @@
 
     <div class="section-header report-heading">
       <div><p class="eyebrow section-eyebrow mb-1">PASO 3 · ARMAR INFORME</p><h2 class="page-title">Informe narrativo</h2><p class="page-lead" id="reportHint">Generá un borrador con tus observaciones; después podés editarlo y descargarlo.</p></div>
-      <div class="d-flex gap-2 align-items-center flex-wrap">
-        <label class="visually-hidden" for="generoAlumno">Género para el informe</label>
-        <select id="generoAlumno" class="form-select form-select-sm w-auto" title="Para que el informe use femenino o masculino" onchange="guardarGeneroAlumno({{ alumno.id_alumno }}, this)">
-          <option value="" {% if not alumno.genero %}selected{% endif %}>Género: sin especificar</option>
-          <option value="F" {% if alumno.genero == 'F' %}selected{% endif %}>Nena</option>
-          <option value="M" {% if alumno.genero == 'M' %}selected{% endif %}>Nene</option>
-        </select>
-        <button class="btn btn-primary" id="btnGenerar" onclick="generarInforme({{ alumno.id_alumno }})"><span aria-hidden="true">✦</span> Generar informe</button>
-      </div>
+      <button class="btn btn-primary" id="btnGenerar" onclick="generarInforme({{ alumno.id_alumno }})"><span aria-hidden="true">✦</span> Generar informe</button>
     </div>
     <div id="obsContainer">
       <div class="text-center py-5 text-muted">Cargando...</div>
@@ -62,12 +54,6 @@
   <script src="/static/js/app.js?v=31"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => cargarObsAlumno({{ alumno.id_alumno }}));
-    async function guardarGeneroAlumno(idAlumno, select) {
-      try {
-        await api('PUT', `/api/alumnos/${idAlumno}/genero`, { genero: select.value || null });
-        mostrarToast('Listo: el próximo informe va a usar ese género');
-      } catch (e) { mostrarToast('Error: ' + e.message, 'danger'); }
-    }
   </script>
 </body>
 </html>

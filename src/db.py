@@ -5,11 +5,8 @@ try:
     ZONA = ZoneInfo('America/Argentina/Buenos_Aires')
 except Exception:
     ZONA = None
-import threading
-import time
 import psycopg2
-from psycopg2 import extras, extensions
-from psycopg2 import pool as pg_pool
+from psycopg2 import extras
 
 
 def hoy():
@@ -19,102 +16,15 @@ def hoy():
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
-# ─── Conexiones ──────────────────────────
-# Abrir una conexión nueva con SSL en cada consulta es lo más lento de la app.
-# Reutilizamos conexiones con un pool por proceso: `conectar()` entrega una
-# conexión prestada y `conn.close()` la devuelve al pool en vez de cerrarla.
-# psycopg2 solo conserva abiertas hasta `minconn` conexiones inactivas; el resto
-# se cierra al devolverlas. Con workers sincrónicos alcanza con pocas.
-_POOL_MIN = int(os.environ.get('DB_POOL_MIN', '2'))
-_POOL_MAX = int(os.environ.get('DB_POOL_MAX', '10'))
-_PING_SI_INACTIVA_SEG = 300
-_pool = None
-_pool_pid = None
-_pool_lock = threading.Lock()
-_ultimo_uso = {}
-
-
-def _obtener_pool():
-    global _pool, _pool_pid
-    # Tras un fork (por ejemplo gunicorn --preload) cada proceso necesita su
-    # propio pool: compartir sockets entre procesos corrompe las conexiones.
-    if _pool is None or _pool_pid != os.getpid():
-        with _pool_lock:
-            if _pool is None or _pool_pid != os.getpid():
-                _pool = pg_pool.ThreadedConnectionPool(
-                    _POOL_MIN, _POOL_MAX, DATABASE_URL, sslmode='require',
-                    keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3)
-                _pool_pid = os.getpid()
-                _ultimo_uso.clear()
-    return _pool
-
-
-def _preparar(raw):
-    """Configura una conexión recién creada o verifica una que estuvo inactiva."""
-    clave = id(raw)
-    previo = _ultimo_uso.get(clave)
-    if previo is None:
-        raw.autocommit = False
-        with raw.cursor() as cur:
-            cur.execute("SET TIME ZONE 'America/Argentina/Buenos_Aires'")
-        raw.commit()
-    elif time.monotonic() - previo > _PING_SI_INACTIVA_SEG:
-        with raw.cursor() as cur:
-            cur.execute('SELECT 1')
-        raw.rollback()
-
-
-class _ConexionPool:
-    """Envoltorio que devuelve la conexión al pool al llamar a close()."""
-
-    def __init__(self, raw):
-        self._raw = raw
-
-    def __getattr__(self, nombre):
-        if self._raw is None:
-            raise psycopg2.InterfaceError('La conexión ya fue devuelta al pool')
-        return getattr(self._raw, nombre)
-
-    def close(self):
-        raw, self._raw = self._raw, None
-        if raw is None:
-            return
-        descartar = bool(raw.closed)
-        if not descartar:
-            try:
-                if raw.get_transaction_status() != extensions.TRANSACTION_STATUS_IDLE:
-                    raw.rollback()
-            except Exception:
-                descartar = True
-        if descartar:
-            _ultimo_uso.pop(id(raw), None)
-        else:
-            _ultimo_uso[id(raw)] = time.monotonic()
-        try:
-            _obtener_pool().putconn(raw, close=descartar)
-        except Exception:
-            # Pool de otro proceso o ya cerrado: cerramos la conexión directamente.
-            try:
-                raw.close()
-            except Exception:
-                pass
-        if raw.closed:
-            _ultimo_uso.pop(id(raw), None)
-
-
 def conectar():
-    pool = _obtener_pool()
-    for _ in range(3):
-        raw = pool.getconn()
-        try:
-            if raw.closed:
-                raise psycopg2.InterfaceError('conexión cerrada')
-            _preparar(raw)
-            return _ConexionPool(raw)
-        except psycopg2.Error:
-            _ultimo_uso.pop(id(raw), None)
-            pool.putconn(raw, close=True)
-    raise psycopg2.OperationalError('No se pudo obtener una conexión a la base de datos')
+    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+    conn.autocommit = False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SET TIME ZONE 'America/Argentina/Buenos_Aires'")
+    except Exception:
+        pass
+    return conn
 
 def fetch_all(conn, sql, params=None):
     with conn.cursor(cursor_factory=extras.RealDictCursor) as cur:
@@ -234,16 +144,6 @@ def inicializar_bd():
             nombre TEXT NOT NULL,
             apellido TEXT NOT NULL
         )''')
-        # 'F' o 'M': solo se usa para que el informe concuerde en género.
-        execute(conn, "ALTER TABLE alumnos ADD COLUMN IF NOT EXISTS genero TEXT")
-
-        # Intentos de login / reset compartidos entre todos los workers.
-        execute(conn, '''CREATE TABLE IF NOT EXISTS intentos_acceso (
-            id SERIAL PRIMARY KEY,
-            clave TEXT NOT NULL,
-            fecha TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )''')
-        execute(conn, 'CREATE INDEX IF NOT EXISTS idx_intentos_acceso_clave ON intentos_acceso(clave, fecha)')
 
         execute(conn, '''CREATE TABLE IF NOT EXISTS actividades (
             id_actividad SERIAL PRIMARY KEY,
@@ -543,35 +443,6 @@ def actualizar_contraseña(id_usuario, nueva_hash):
     finally:
         conn.close()
 
-def registrar_intento_acceso(clave, maximo, ventana_minutos):
-    """Registra un intento para `clave` y devuelve False si ya se superó el
-    máximo dentro de la ventana. Se guarda en la base para que el límite sea
-    el mismo en todos los workers."""
-    conn = conectar()
-    try:
-        with conn.cursor() as cur:
-            # Serializa los intentos de la misma clave para no contar de menos.
-            cur.execute('SELECT pg_advisory_xact_lock(hashtext(%s))', (clave,))
-            cur.execute('''DELETE FROM intentos_acceso
-                           WHERE fecha < NOW() - make_interval(mins => %s)''', (ventana_minutos,))
-            cur.execute('SELECT COUNT(*) FROM intentos_acceso WHERE clave = %s', (clave,))
-            if cur.fetchone()[0] >= maximo:
-                conn.commit()
-                return False
-            cur.execute('INSERT INTO intentos_acceso (clave) VALUES (%s)', (clave,))
-        conn.commit()
-        return True
-    finally:
-        conn.close()
-
-def limpiar_intentos_acceso(clave):
-    conn = conectar()
-    try:
-        execute(conn, 'DELETE FROM intentos_acceso WHERE clave = %s', (clave,))
-        conn.commit()
-    finally:
-        conn.close()
-
 def guardar_reset_token(id_usuario, token, expira):
     conn = conectar()
     try:
@@ -609,21 +480,12 @@ def extender_suscripcion(id_usuario, dias, mp_preapproval_id, tipo_plan=None, mo
         conn.close()
 
 def registrar_pago(id_usuario, monto, tipo, mp_payment_id=None):
-    """Registra un pago. Mercado Pago reenvía notificaciones, así que un mismo
-    mp_payment_id se guarda una sola vez. Devuelve True si se insertó."""
     conn = conectar()
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                '''INSERT INTO pagos (id_usuario, monto, tipo, mp_payment_id)
-                   SELECT %s, %s, %s, %s
-                   WHERE %s IS NULL OR NOT EXISTS (
-                       SELECT 1 FROM pagos WHERE mp_payment_id = %s
-                   )''',
-                (id_usuario, monto, tipo, mp_payment_id, mp_payment_id, mp_payment_id))
-            insertado = cur.rowcount > 0
+        execute(conn,
+            'INSERT INTO pagos (id_usuario, monto, tipo, mp_payment_id) VALUES (%s,%s,%s,%s)',
+            (id_usuario, monto, tipo, mp_payment_id))
         conn.commit()
-        return insertado
     finally:
         conn.close()
 
@@ -771,15 +633,12 @@ def enviar_comunicado(id_admin, texto):
 
 # ─── ALUMNOS ─────────────────────────────
 
-GENEROS_VALIDOS = ('F', 'M')
-
-def registrar_alumno(id_usuario, nombre, apellido, id_sala=None, genero=None):
-    genero = genero if genero in GENEROS_VALIDOS else None
+def registrar_alumno(id_usuario, nombre, apellido, id_sala=None):
     conn = conectar()
     try:
         uid = execute_return(conn,
-            'INSERT INTO alumnos (id_usuario, id_sala, nombre, apellido, genero) VALUES (%s,%s,%s,%s,%s) RETURNING id_alumno',
-            (id_usuario, id_sala, nombre, apellido, genero))
+            'INSERT INTO alumnos (id_usuario, id_sala, nombre, apellido) VALUES (%s,%s,%s,%s) RETURNING id_alumno',
+            (id_usuario, id_sala, nombre, apellido))
         conn.commit()
         return uid
     finally:
@@ -789,19 +648,8 @@ def obtener_alumnos(id_usuario, id_sala=None):
     conn = conectar()
     try:
         return fetch_all(conn,
-            'SELECT id_alumno, nombre, apellido, genero FROM alumnos WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala) ORDER BY apellido, nombre',
+            'SELECT id_alumno, nombre, apellido FROM alumnos WHERE id_usuario = %s AND id_sala = COALESCE(%s, id_sala) ORDER BY apellido, nombre',
             (id_usuario, id_sala))
-    finally:
-        conn.close()
-
-def actualizar_genero_alumno(id_alumno, id_usuario, genero, id_sala=None):
-    genero = genero if genero in GENEROS_VALIDOS else None
-    conn = conectar()
-    try:
-        execute(conn, '''UPDATE alumnos SET genero = %s
-                         WHERE id_alumno = %s AND id_usuario = %s AND id_sala = COALESCE(%s, id_sala)''',
-                (genero, id_alumno, id_usuario, id_sala))
-        conn.commit()
     finally:
         conn.close()
 
