@@ -93,6 +93,15 @@
             <label class="form-label">Apellido</label>
             <input type="text" id="aApellido" class="form-control">
           </div>
+          <div class="mb-2">
+            <label class="form-label" for="aGenero">Para redactar el informe</label>
+            <select id="aGenero" class="form-select">
+              <option value="">Sin especificar</option>
+              <option value="F">Nena</option>
+              <option value="M">Nene</option>
+            </select>
+            <div class="form-text">Sirve para que el informe use femenino o masculino.</div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -210,15 +219,17 @@
     function mostrarModalAlumno() {
       document.getElementById('aNombre').value = '';
       document.getElementById('aApellido').value = '';
+      document.getElementById('aGenero').value = '';
       modalAlumno.show();
     }
 
     async function guardarAlumno() {
       const nombre = document.getElementById('aNombre').value.trim();
       const apellido = document.getElementById('aApellido').value.trim();
+      const genero = document.getElementById('aGenero').value || null;
       if (!nombre || !apellido) return mostrarToast('Completá nombre y apellido', 'warning');
       try {
-        await api('POST', '/api/alumnos', { nombre, apellido });
+        await api('POST', '/api/alumnos', { nombre, apellido, genero });
         modalAlumno.hide();
         mostrarToast('Alumno agregado');
         cargarAlumnos();

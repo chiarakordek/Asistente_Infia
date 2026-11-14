@@ -1,11 +1,10 @@
 import os
+import re
+import unicodedata
 from openai import OpenAI
 from src.config import GROQ_API_KEY
 from src.informe_utils import quitar_linea_faltas
-import psycopg2
-from psycopg2 import extras
-
-DATABASE_URL = os.environ.get('DATABASE_URL')
+from src.db import conectar, fetch_all, fetch_one, hoy
 
 AREAS_INFORME = [
     'IDENTIDAD Y CONVIVENCIA',
@@ -21,53 +20,126 @@ client = OpenAI(
 
 MODELO_INFORMES = os.environ.get('GROQ_MODEL', 'openai/gpt-oss-120b')
 
-def fetch_all(sql, params=None):
-    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-    try:
-        with conn.cursor(cursor_factory=extras.RealDictCursor) as cur:
-            cur.execute(sql, params or ())
-            return [dict(r) for r in cur.fetchall()]
-    finally:
-        conn.close()
+# Mes hasta el cual corre la primera etapa (receso invernal en Argentina).
+ULTIMO_MES_PRIMERA_ETAPA = 7
 
-def fetch_one(sql, params=None):
-    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-    try:
-        with conn.cursor(cursor_factory=extras.RealDictCursor) as cur:
-            cur.execute(sql, params or ())
-            r = cur.fetchone()
-            return dict(r) if r else None
-    finally:
-        conn.close()
 
 def obtener_datos_alumno(id_alumno):
-    alumno = fetch_one('''
-        SELECT al.nombre, al.apellido, u.sala, u.turno, u.nombre as docente
-        FROM alumnos al
-        JOIN usuarios u ON al.id_usuario = u.id_usuario
-        WHERE al.id_alumno = %s
-    ''', (id_alumno,))
-    if not alumno:
-        return None, []
-    notas = fetch_all('''
-        SELECT a.area, a.nombre as act_nombre, o.nota_cruda, o.fecha
-        FROM observaciones o
-        LEFT JOIN actividades a ON o.id_actividad = a.id_actividad
-        WHERE o.id_alumno = %s
-        ORDER BY o.fecha
-    ''', (id_alumno,))
-    return alumno, notas
+    conn = conectar()
+    try:
+        # Sala y turno salen de la sala del alumno (una docente puede tener varias).
+        alumno = fetch_one(conn, '''
+            SELECT al.nombre, al.apellido, al.genero, al.id_usuario,
+                   COALESCE(s.sala, u.sala) AS sala, COALESCE(s.turno, u.turno) AS turno,
+                   u.nombre AS docente
+            FROM alumnos al
+            JOIN usuarios u ON al.id_usuario = u.id_usuario
+            LEFT JOIN salas_docente s ON s.id_sala = al.id_sala
+            WHERE al.id_alumno = %s
+        ''', (id_alumno,))
+        if not alumno:
+            return None, [], []
+        notas = fetch_all(conn, '''
+            SELECT a.area, a.nombre as act_nombre, o.nota_cruda, o.fecha
+            FROM observaciones o
+            LEFT JOIN actividades a ON o.id_actividad = a.id_actividad
+            WHERE o.id_alumno = %s
+            ORDER BY o.fecha
+        ''', (id_alumno,))
+        companeros = fetch_all(conn, '''
+            SELECT nombre, apellido FROM alumnos
+            WHERE id_usuario = %s AND id_alumno <> %s
+        ''', (alumno['id_usuario'], id_alumno))
+        return alumno, notas, companeros
+    finally:
+        conn.close()
+
+
+def etapa_actual(fecha=None):
+    """Devuelve (año, 'PRIMERA'|'SEGUNDA') según la fecha de generación."""
+    fecha = fecha or hoy()
+    etapa = 'PRIMERA' if fecha.month <= ULTIMO_MES_PRIMERA_ETAPA else 'SEGUNDA'
+    return fecha.year, etapa
+
+
+_VARIANTES = {
+    'a': 'aáàäâ', 'e': 'eéèëê', 'i': 'iíìïî', 'o': 'oóòöô', 'u': 'uúùüû',
+}
+
+
+def _sin_tildes(texto):
+    return ''.join(c for c in unicodedata.normalize('NFD', texto)
+                   if unicodedata.category(c) != 'Mn')
+
+
+def _patron_palabra(palabra):
+    """Regex que encuentra la palabra completa sin importar mayúsculas ni tildes."""
+    partes = []
+    for c in _sin_tildes(palabra).lower():
+        if c in _VARIANTES:
+            partes.append('[' + _VARIANTES[c] + ']')
+        else:
+            partes.append(re.escape(c))
+    return r'(?<!\w)' + ''.join(partes) + r'(?!\w)'
+
+
+def _palabras_de(*textos):
+    palabras = set()
+    for t in textos:
+        for p in re.split(r'[\s\-]+', t or ''):
+            p = p.strip(".,;:'\"()")
+            # Palabras muy cortas ("de", "la") darían reemplazos indebidos.
+            if len(p) >= 3:
+                palabras.add(p)
+    return palabras
+
+
+def anonimizar(texto, nombre, apellido, otros_nombres=(), docente=None):
+    """Quita del texto los datos que identifican a chicos y docente antes de
+    enviarlo al proveedor de IA. El alumno pasa a ser ALUMNO; compañeros y
+    docente, referencias genéricas."""
+    reemplazos = [(p, 'ALUMNO') for p in _palabras_de(nombre, apellido)]
+    usadas = {_sin_tildes(p).lower() for p, _ in reemplazos}
+    for otro in otros_nombres:
+        for p in _palabras_de(otro):
+            clave = _sin_tildes(p).lower()
+            if clave not in usadas:
+                reemplazos.append((p, 'un compañero'))
+                usadas.add(clave)
+    for p in _palabras_de(docente):
+        if _sin_tildes(p).lower() not in usadas:
+            reemplazos.append((p, 'la docente'))
+    # Primero las palabras más largas, para no cortar nombres compuestos.
+    reemplazos.sort(key=lambda r: len(r[0]), reverse=True)
+    for palabra, marcador in reemplazos:
+        texto = re.sub(_patron_palabra(palabra), marcador, texto, flags=re.IGNORECASE)
+    # Nombre y apellido seguidos quedan como un solo marcador.
+    texto = re.sub(r'ALUMNO(?:\s+ALUMNO)+', 'ALUMNO', texto)
+    texto = re.sub(r'un compañero(?:\s+un compañero)+', 'un compañero', texto)
+    return texto
+
+
+def instruccion_genero(genero):
+    if genero == 'F':
+        return ('Es una nena: escribí todo en femenino ("la alumna", "atenta", "cuidadosa", '
+                '"la guía"), pero usá igual la palabra exacta ALUMNO como marcador de su nombre.')
+    if genero == 'M':
+        return 'Es un nene: escribí en masculino ("el alumno", "atento", "cuidadoso").'
+    return ('No sabemos si es nena o nene: evitá adjetivos y pronombres con género cuando puedas '
+            '(por ejemplo "demuestra interés" en lugar de "está interesado") y usá ALUMNO como sujeto.')
+
 
 def formatear_informe_ia(id_alumno):
     if not GROQ_API_KEY or '...' in GROQ_API_KEY:
         raise RuntimeError('Falta configurar GROQ_API_KEY en las variables de entorno del servidor.')
 
-    alumno, notas = obtener_datos_alumno(id_alumno)
+    alumno, notas, companeros = obtener_datos_alumno(id_alumno)
     if not alumno:
         return None
 
     nombre, apellido, sala, turno, docente = alumno['nombre'], alumno['apellido'], alumno['sala'], alumno['turno'], alumno['docente']
     nombre_completo = ' '.join(parte for parte in (nombre, apellido) if parte).strip()
+    anio, etapa = etapa_actual()
 
     obs_por_area = {a: [] for a in AREAS_INFORME}
     areas_map = {
@@ -90,15 +162,19 @@ def formatear_informe_ia(id_alumno):
         if lista:
             texto_observaciones += f"\n{area}:\n" + "\n".join(lista) + "\n"
 
-    # Evita reenviar al proveedor los identificadores conocidos del alumno.
-    texto_observaciones_ia = texto_observaciones.replace(nombre, 'ALUMNO').replace(apellido, 'ALUMNO')
+    # Evita reenviar al proveedor los nombres del alumno, de sus compañeros y de la docente.
+    texto_observaciones_ia = anonimizar(
+        texto_observaciones, nombre, apellido,
+        otros_nombres=[f"{c['nombre']} {c['apellido']}" for c in companeros],
+        docente=docente,
+    )
 
     system_prompt = "Sos un docente de nivel inicial argentino. Generá informes evaluativos formales pero cálidos, siempre en positivo."
     user_prompt = f"""Generá un informe evaluativo para ALUMNO siguiendo EXACTAMENTE este formato.
 No incluyas nombres, apellidos, nombres de docentes, salas ni otros datos identificatorios reales.
 
 INFORMES EVALUATIVOS
-INFORME 2025 - PRIMERA ETAPA
+INFORME {anio} - {etapa} ETAPA
 Sala: SALA - Docente: DOCENTE - Turno: TURNO
 
 ALUMNO
@@ -116,6 +192,7 @@ CIENCIAS SOCIALES, CIENCIAS NATURALES Y TECNOLOGIA:
 [Párrafo de 4-6 líneas]
 
 REGLAS (obligatorio):
+- {instruccion_genero(alumno.get('genero'))}
 - Cada párrafo 4-6 líneas
 - Lenguaje formal pero cálido, SIEMPRE EN POSITIVO
 - Usá frases como "se está iniciando en...", "paulatinamente logra...", "disfruta de...", "logró...", "está en proceso de...", "presenta avances en...", "necesita del estímulo de la docente para...", "se observan progresos en..."
@@ -182,10 +259,10 @@ OBSERVACIONES DEL ALUMNO:
     if not texto:
         return None
     # Los datos identificatorios se incorporan localmente, no se envían al proveedor.
-    texto = texto.replace('ALUMNO', nombre_completo)
-    texto = texto.replace('SALA', sala or '')
-    texto = texto.replace('DOCENTE', docente or '')
-    texto = texto.replace('TURNO', turno or '')
+    texto = re.sub(r'\bALUMN[OA]\b', lambda _: nombre_completo, texto)
+    texto = re.sub(r'\bSALA\b', lambda _: sala or '', texto)
+    texto = re.sub(r'\bDOCENTE\b', lambda _: docente or '', texto)
+    texto = re.sub(r'\bTURNO\b', lambda _: turno or '', texto)
     return quitar_linea_faltas(texto)
 
 if __name__ == '__main__':
