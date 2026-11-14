@@ -69,7 +69,10 @@ async function api(method, url, body) {
 }
 
 // ─── AUTH ────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+// Se engancha apenas carga el script (está al final del <body>), sin esperar
+// a DOMContentLoaded: si Bootstrap tarda en bajar del CDN, el formulario
+// igual queda controlado por JavaScript.
+function iniciarFormulariosAuth() {
   const lf = document.getElementById('loginForm');
   if (lf) lf.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -141,7 +144,12 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.disabled = false; btn.removeAttribute('aria-busy'); btn.innerHTML = 'Crear mi cuenta <span aria-hidden="true">→</span>';
     }
   });
-});
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', iniciarFormulariosAuth);
+} else {
+  iniciarFormulariosAuth();
+}
 
 async function logout() {
   await api('GET', '/api/logout');

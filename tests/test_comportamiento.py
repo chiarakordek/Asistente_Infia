@@ -108,6 +108,66 @@ class ConsultasPorPedidoTest(ClienteBase):
         self.assertEqual(app_module.obtener_salas_docente.call_count, 1)
 
 
+class LoginTest(unittest.TestCase):
+    """El login funciona por la API (con JavaScript) y por formulario (sin JavaScript)."""
+
+    def setUp(self):
+        self.client = app_module.app.test_client()
+        hash_ok = app_module.hash_pass('Prueba1234')
+        self.parches = [
+            mock.patch.object(app_module, 'registrar_intento_acceso', return_value=True),
+            mock.patch.object(app_module, 'limpiar_intentos_acceso'),
+            mock.patch.object(app_module, 'obtener_bajas_vencidas', return_value=[]),
+            mock.patch.object(app_module, 'obtener_salas_docente', return_value=SALAS),
+            mock.patch.object(app_module, 'obtener_usuario_por_id', return_value=dict(USUARIO)),
+            mock.patch.object(app_module, 'obtener_usuario_por_email',
+                              side_effect=lambda e: dict(USUARIO, contraseña=hash_ok) if e == USUARIO['email'] else None),
+        ]
+        for p in self.parches:
+            p.start()
+
+    def tearDown(self):
+        for p in self.parches:
+            p.stop()
+
+    def test_api_login_correcto(self):
+        r = self.client.post('/api/login', json={'email': USUARIO['email'], 'contraseña': 'Prueba1234'})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json()['destino'], '/dashboard')
+
+    def test_api_login_json_invalido_no_da_500(self):
+        r = self.client.post('/api/login', data=b'{"email":"a","contrase\xf1a":"x"}',
+                             headers={'Content-Type': 'application/json'})
+        self.assertEqual(r.status_code, 400)
+
+    def test_formulario_sin_javascript_inicia_sesion(self):
+        r = self.client.post('/login', data={'email': USUARIO['email'], 'password': 'Prueba1234'})
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r.headers['Location'].endswith('/dashboard'))
+        with self.client.session_transaction() as s:
+            self.assertEqual(s['user_id'], USUARIO['id_usuario'])
+
+    def test_formulario_con_error_muestra_mensaje_y_no_expone_la_contraseña(self):
+        r = self.client.post('/login', data={'email': USUARIO['email'], 'password': 'ClaveErronea987'})
+        self.assertEqual(r.status_code, 401)
+        html = r.get_data(as_text=True)
+        self.assertIn('Email o contraseña incorrectos', html)
+        self.assertIn(f'value="{USUARIO["email"]}"', html)
+        self.assertNotIn('ClaveErronea987', html)
+
+    def test_formulario_desde_otro_sitio_se_rechaza(self):
+        r = self.client.post('/login', data={'email': USUARIO['email'], 'password': 'Prueba1234'},
+                             headers={'Origin': 'https://sitio-malicioso.example'})
+        self.assertEqual(r.status_code, 400)
+        with self.client.session_transaction() as s:
+            self.assertNotIn('user_id', s)
+
+    def test_formularios_usan_post(self):
+        for plantilla in ('login.html', 'registro.html', 'reset.html'):
+            html = (ROOT / 'templates' / plantilla).read_text(encoding='utf-8')
+            self.assertIn('method="post"', html, plantilla)
+
+
 class RateLimitTest(unittest.TestCase):
     def test_respaldo_en_memoria_si_la_base_falla(self):
         app_module._intentos_memoria.clear()

@@ -297,12 +297,24 @@ def index():
         return redirect('/dashboard')
     return redirect('/login')
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login_page():
-    return render_template('login.html')
+    if request.method == 'GET':
+        return render_template('login.html')
+    # Respaldo sin JavaScript: si el script todavía no cargó (conexión lenta,
+    # CDN bloqueado, caché vieja), el navegador envía el formulario directo.
+    if not _mismo_origen():
+        return render_template('login.html', error='No pudimos validar el formulario. Probá de nuevo.'), 400
+    email = (request.form.get('email') or '').strip()
+    resultado = _intentar_login(email, request.form.get('password') or '')
+    if 'error' in resultado:
+        return render_template('login.html', error=resultado['error'], email=email), resultado['status']
+    return redirect(resultado['destino'])
 
-@app.route('/registro')
+@app.route('/registro', methods=['GET', 'POST'])
 def registro_page():
+    if request.method == 'POST':
+        return redirect('/registro')
     return render_template('registro.html', requiere_codigo=bool(os.environ.get('CODIGO_INVITACION')))
 
 @app.route('/privacidad')
@@ -637,22 +649,31 @@ def api_admin_reset(id_usuario):
 
 # ─── API: AUTH ───────────────────────────
 
-@app.route('/api/login', methods=['POST'])
-def api_login():
+def _mismo_origen():
+    """Evita que otro sitio envíe el formulario de login (login CSRF)."""
+    origen = request.headers.get('Origin') or request.headers.get('Referer')
+    if not origen:
+        return True
+    from urllib.parse import urlparse
+    return urlparse(origen).netloc == request.host
+
+def _intentar_login(email, contraseña):
+    """Valida credenciales e inicia la sesión.
+
+    Devuelve {'destino', 'nombre'} si salió bien o {'error', 'status'} si no.
+    """
     try:
         ip = request.remote_addr or 'unknown'
         if not revisar_rate_limit(ip):
-            return jsonify(error='Demasiados intentos. Esperá 15 minutos.'), 429
-        data = request.json
-        email = (data.get('email') or '').strip()
-        contraseña = data.get('contraseña') or ''
+            return {'error': 'Demasiados intentos. Esperá 15 minutos.', 'status': 429}
         if not email or not contraseña:
-            return jsonify(error='Completá todos los campos'), 400
+            return {'error': 'Completá todos los campos', 'status': 400}
         user = obtener_usuario_por_email(email)
         if not user or not check_password_hash(user['contraseña'], contraseña):
-            return jsonify(error='Email o contraseña incorrectos'), 401
+            return {'error': 'Email o contraseña incorrectos', 'status': 401}
         if user.get('baja_solicitada_en'):
-            return jsonify(error='Tu cuenta está pendiente de eliminación. Podés cancelarla desde tu sesión si todavía está activa.'), 403
+            return {'error': 'Tu cuenta está pendiente de eliminación. Podés cancelarla desde tu sesión si todavía está activa.',
+                    'status': 403}
         session.permanent = True
         session['user_id'] = user['id_usuario']
         session.pop('id_sala_activa', None)
@@ -660,11 +681,20 @@ def api_login():
         limpiar_rate_limit(ip)
         admin_email = os.environ.get('ADMIN_EMAIL', '')
         es_admin_login = bool(admin_email and (user['email'] or '').lower() == admin_email.lower())
-        return jsonify(ok=True, nombre=user['nombre'],
-                       destino='/admin' if es_admin_login else '/dashboard')
+        return {'destino': '/admin' if es_admin_login else '/dashboard', 'nombre': user['nombre']}
     except Exception:
         app.logger.exception('Error en login')
-        return jsonify(error='Ocurrió un error interno. Intentá de nuevo en unos minutos.'), 500
+        return {'error': 'Ocurrió un error interno. Intentá de nuevo en unos minutos.', 'status': 500}
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error='No pudimos leer los datos enviados. Probá de nuevo.'), 400
+    resultado = _intentar_login((data.get('email') or '').strip(), data.get('contraseña') or '')
+    if 'error' in resultado:
+        return jsonify(error=resultado['error']), resultado['status']
+    return jsonify(ok=True, nombre=resultado['nombre'], destino=resultado['destino'])
 
 @app.route('/api/register', methods=['POST'])
 def api_register():
@@ -1266,8 +1296,10 @@ def api_actualizar_avatar():
 
 # ─── PÁGINA: RESET ─────────────────────────
 
-@app.route('/reset/<token>')
+@app.route('/reset/<token>', methods=['GET', 'POST'])
 def reset_page(token):
+    if request.method == 'POST':
+        return redirect(f'/reset/{token}')
     from src.db import obtener_usuario_por_token
     user = obtener_usuario_por_token(token)
     if not user:
