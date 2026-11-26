@@ -1,5 +1,7 @@
 from fpdf import FPDF
 
+from src.informe_utils import RE_ENCABEZADO
+
 AREAS = [
     'IDENTIDAD Y CONVIVENCIA',
     'LENGUAJE Y LITERATURA',
@@ -9,7 +11,7 @@ AREAS = [
 
 def es_area(linea):
     u = linea.upper().rstrip(':').strip()
-    return u in AREAS or 'INFORME 2025' in u or linea.strip() == 'INFORMES EVALUATIVOS' or linea.strip().startswith('FALTAS:')
+    return u in AREAS or RE_ENCABEZADO.search(u) or linea.strip() == 'INFORMES EVALUATIVOS' or linea.strip().startswith('FALTAS:')
 
 def informe_to_pdf(contenido, nombre_completo):
     pdf = FPDF()
@@ -27,7 +29,7 @@ def informe_to_pdf(contenido, nombre_completo):
         if stripped == 'INFORMES EVALUATIVOS':
             pdf.set_font('Helvetica', 'B', 16)
             pdf.cell(0, 10, stripped, ln=True, align='C')
-        elif 'INFORME 2025' in stripped.upper():
+        elif RE_ENCABEZADO.search(stripped):
             pdf.set_font('Helvetica', 'B', 12)
             pdf.cell(0, 8, stripped, ln=True, align='C')
         elif stripped.startswith('Sala:'):

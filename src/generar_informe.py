@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 from src.config import GROQ_API_KEY
-from src.informe_utils import quitar_linea_faltas
+from src.informe_utils import encabezado_informe, fijar_encabezado, quitar_linea_faltas
 import psycopg2
 from psycopg2 import extras
 
@@ -93,12 +93,14 @@ def formatear_informe_ia(id_alumno):
     # Evita reenviar al proveedor los identificadores conocidos del alumno.
     texto_observaciones_ia = texto_observaciones.replace(nombre, 'ALUMNO').replace(apellido, 'ALUMNO')
 
+    encabezado = encabezado_informe()
+
     system_prompt = "Sos un docente de nivel inicial argentino. Generá informes evaluativos formales pero cálidos, siempre en positivo."
     user_prompt = f"""Generá un informe evaluativo para ALUMNO siguiendo EXACTAMENTE este formato.
 No incluyas nombres, apellidos, nombres de docentes, salas ni otros datos identificatorios reales.
 
 INFORMES EVALUATIVOS
-INFORME 2025 - PRIMERA ETAPA
+{encabezado}
 Sala: SALA - Docente: DOCENTE - Turno: TURNO
 
 ALUMNO
@@ -186,7 +188,7 @@ OBSERVACIONES DEL ALUMNO:
     texto = texto.replace('SALA', sala or '')
     texto = texto.replace('DOCENTE', docente or '')
     texto = texto.replace('TURNO', turno or '')
-    return quitar_linea_faltas(texto)
+    return fijar_encabezado(quitar_linea_faltas(texto))
 
 if __name__ == '__main__':
     print(formatear_informe_ia(1))

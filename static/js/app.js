@@ -586,7 +586,7 @@ function mostrarInforme(container, contenido, idAlumno, nombre, apellido) {
     .replace(/>/g, '&gt;')
     .replace(/\n/g, '<br>')
     .replace(/INFORMES EVALUATIVOS/g, '<div class="titulo">INFORMES EVALUATIVOS</div>')
-    .replace(/INFORME 2025 - PRIMERA ETAPA/g, '<div class="subtitulo">INFORME 2025 - PRIMERA ETAPA</div>')
+    .replace(/INFORME \d{4}\s*-\s*[A-ZÁÉÍÓÚÑ ]*ETAPA/gi, (encabezado) => `<div class="subtitulo">${encabezado}</div>`)
     .replace(/(IDENTIDAD Y CONVIVENCIA|LENGUAJE Y LITERATURA|MATEMÁTICAS|CIENCIAS SOCIALES, CIENCIAS NATURALES Y TECNOLOGIA):?/g, '<div class="area">$1</div>')
     .replace(/\n{3,}/g, '\n\n');
 
