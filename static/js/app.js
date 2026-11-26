@@ -572,6 +572,18 @@ async function cargarObsAlumno(idAlumno) {
 }
 
 // ─── INFORME (view / edit) ──────────────
+function escaparInforme(texto) {
+  return texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Título de sección: línea corta en mayúsculas (sirve para el formato de Infia y para formatos propios).
+function esTituloInforme(linea) {
+  const t = linea.trim().replace(/:$/, '').trim();
+  if (!t || t.length > 80) return false;
+  const letras = t.match(/\p{L}/gu) || [];
+  return letras.length >= 3 && letras.every((c) => c === c.toUpperCase() && c !== c.toLowerCase());
+}
+
 function mostrarInforme(container, contenido, idAlumno, nombre, apellido) {
   if (!contenido) {
     container.innerHTML = `<div class="text-center py-4 text-muted">
@@ -582,13 +594,16 @@ function mostrarInforme(container, contenido, idAlumno, nombre, apellido) {
 
   contenido = completarNombreInforme(limpiarFaltasInforme(contenido), nombre, apellido);
   const html = contenido
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\n/g, '<br>')
-    .replace(/INFORMES EVALUATIVOS/g, '<div class="titulo">INFORMES EVALUATIVOS</div>')
-    .replace(/INFORME \d{4}\s*-\s*[A-ZÁÉÍÓÚÑ ]*ETAPA/gi, (encabezado) => `<div class="subtitulo">${encabezado}</div>`)
-    .replace(/(IDENTIDAD Y CONVIVENCIA|LENGUAJE Y LITERATURA|MATEMÁTICAS|CIENCIAS SOCIALES, CIENCIAS NATURALES Y TECNOLOGIA):?/g, '<div class="area">$1</div>')
-    .replace(/\n{3,}/g, '\n\n');
+    .replace(/\n{3,}/g, '\n\n')
+    .split('\n')
+    .map((linea) => {
+      const t = linea.trim();
+      if (t === 'INFORMES EVALUATIVOS') return `<div class="titulo">${escaparInforme(t)}</div>`;
+      if (/^INFORME \d{4}\s*-\s*[A-ZÁÉÍÓÚÑ ]*ETAPA$/i.test(t)) return `<div class="subtitulo">${escaparInforme(t)}</div>`;
+      if (esTituloInforme(t)) return `<div class="area">${escaparInforme(t.replace(/:$/, ''))}</div>`;
+      return `${escaparInforme(linea)}<br>`;
+    })
+    .join('');
 
   container.innerHTML = `
     <div class="informe-card velora-reveal" id="informeView">${html}</div>

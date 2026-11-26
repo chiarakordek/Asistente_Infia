@@ -40,7 +40,10 @@
       </div>
     </div>
 
-    <div class="section-header report-heading">
+    <div class="section-header report-heading" style="flex-wrap:wrap">
+      <div id="formatoBar" style="order:-1;flex-basis:100%;display:flex;justify-content:flex-end;margin-bottom:.5rem">
+        <button class="btn btn-sm btn-outline-primary" type="button" id="btnFormato" data-bs-toggle="modal" data-bs-target="#modalFormato">＋ Agregar formato de informe</button>
+      </div>
       <div><p class="eyebrow section-eyebrow mb-1">PASO 3 · ARMAR INFORME</p><h2 class="page-title">Informe narrativo</h2><p class="page-lead" id="reportHint">Generá un borrador con tus observaciones; después podés editarlo y descargarlo.</p></div>
       <button class="btn btn-primary" id="btnGenerar" onclick="generarInforme({{ alumno.id_alumno }})"><span aria-hidden="true">✦</span> Generar informe</button>
     </div>
@@ -54,6 +57,88 @@
   <script src="/static/js/app.js?v=31"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => cargarObsAlumno({{ alumno.id_alumno }}));
+  </script>
+
+  <!-- Modal: formato de informe propio de la docente -->
+  <div class="modal fade" id="modalFormato" tabindex="-1" aria-labelledby="modalFormatoTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title h5" id="modalFormatoTitulo">Formato de informe</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted">¿Tu jardín usa otro formato? Subí o pegá un informe que ya hayas hecho y los nuevos van a salir igual: mismos títulos, orden, extensión y tono. El contenido sale siempre de tus observaciones.</p>
+          <label class="form-label small fw-semibold" for="formatoArchivo">Subir Word (.docx) o texto (.txt)</label>
+          <input class="form-control form-control-sm mb-3" type="file" id="formatoArchivo" accept=".docx,.txt">
+          <label class="form-label small fw-semibold" for="formatoTexto">O pegalo acá</label>
+          <textarea id="formatoTexto" class="form-control" rows="10" maxlength="8000" placeholder="Pegá un informe tuyo. Si es PDF, copiá el texto y pegalo."></textarea>
+          <div class="d-flex justify-content-between small text-muted mt-1"><span>🔒 Antes de usarlo reemplazamos tu nombre y los de tus alumnos.</span><span id="formatoContador">0 / 8000</span></div>
+          <div id="formatoError" class="alert alert-danger d-none py-2 small mt-2 mb-0"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm d-none me-auto" id="btnQuitarFormato">Volver al formato de Infia</button>
+          <button type="button" class="btn btn-primary" id="btnGuardarFormato">Guardar formato</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    // Formato de informe propio de la docente
+    (() => {
+      const btn = document.getElementById('btnFormato');
+      const texto = document.getElementById('formatoTexto');
+      const contador = document.getElementById('formatoContador');
+      const errorEl = document.getElementById('formatoError');
+      const btnGuardar = document.getElementById('btnGuardarFormato');
+      const btnQuitar = document.getElementById('btnQuitarFormato');
+      const modalEl = document.getElementById('modalFormato');
+      if (!btn || typeof api !== 'function') return;
+
+      const pintar = (activo) => {
+        btn.textContent = activo ? '✓ Usando tu formato · Cambiar' : '＋ Agregar formato de informe';
+        btnQuitar.classList.toggle('d-none', !activo);
+      };
+      const contar = () => { contador.textContent = `${texto.value.length} / 8000`; };
+      const error = (msg) => { errorEl.textContent = msg || ''; errorEl.classList.toggle('d-none', !msg); };
+      texto.addEventListener('input', contar);
+
+      api('GET', '/api/informe-modelo').then((r) => {
+        texto.value = (r && r.modelo) || '';
+        pintar(r && r.activo);
+        contar();
+      }).catch(() => {});
+
+      document.getElementById('formatoArchivo').addEventListener('change', async (ev) => {
+        const archivo = ev.target.files[0];
+        if (!archivo) return;
+        error('');
+        const fd = new FormData();
+        fd.append('archivo', archivo);
+        try {
+          const r = await api('POST', '/api/informe-modelo/archivo', fd);
+          texto.value = r.texto;
+          contar();
+        } catch (e) { error(e.message); }
+        ev.target.value = '';
+      });
+
+      const guardar = async (valor) => {
+        error('');
+        btnGuardar.disabled = true;
+        try {
+          const r = await api('PUT', '/api/informe-modelo', { modelo: valor });
+          texto.value = r.modelo || '';
+          contar();
+          pintar(r.activo);
+          bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+          mostrarToast(r.activo ? 'Guardamos tu formato. Tocá "Regenerar informe" para verlo.' : 'Volviste al formato de Infia.');
+        } catch (e) { error(e.message); }
+        finally { btnGuardar.disabled = false; }
+      };
+      btnGuardar.addEventListener('click', () => guardar(texto.value));
+      btnQuitar.addEventListener('click', () => { if (confirm('¿Volver al formato de Infia? Tu formato se va a borrar.')) guardar(''); });
+    })();
   </script>
 </body>
 </html>

@@ -85,6 +85,7 @@ def inicializar_bd():
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS baja_solicitada_en TIMESTAMP")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS motivo_baja TEXT")
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar_data TEXT")
+        execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS informe_modelo TEXT")
         # Las cuentas ya existentes conocen la app; las cuentas nuevas sí
         # reciben el recorrido automáticamente al entrar por primera vez.
         execute(conn, "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tutorial_completado BOOLEAN NOT NULL DEFAULT TRUE")
@@ -431,6 +432,24 @@ def actualizar_avatar(id_usuario, avatar_data):
     try:
         execute(conn, 'UPDATE usuarios SET avatar_data = %s WHERE id_usuario = %s',
                 (avatar_data, id_usuario))
+        conn.commit()
+    finally:
+        conn.close()
+
+def obtener_informe_modelo(id_usuario):
+    conn = conectar()
+    try:
+        fila = fetch_one(conn, 'SELECT informe_modelo FROM usuarios WHERE id_usuario = %s', (id_usuario,))
+        return (fila or {}).get('informe_modelo') or ''
+    finally:
+        conn.close()
+
+def guardar_informe_modelo(id_usuario, texto):
+    """Guarda el informe modelo de la docente; texto vacío lo quita (vuelve al formato de Infia)."""
+    conn = conectar()
+    try:
+        execute(conn, 'UPDATE usuarios SET informe_modelo = %s WHERE id_usuario = %s',
+                (texto or None, id_usuario))
         conn.commit()
     finally:
         conn.close()

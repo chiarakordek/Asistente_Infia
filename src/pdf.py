@@ -1,5 +1,6 @@
 from fpdf import FPDF
 
+from src.informe_modelo import es_titulo
 from src.informe_utils import RE_ENCABEZADO
 
 AREAS = [
@@ -40,6 +41,10 @@ def informe_to_pdf(contenido, nombre_completo):
             pdf.cell(0, 8, stripped, ln=True)
         elif stripped.upper().startswith('FALTAS'):
             pdf.set_font('Helvetica', 'B', 10)
+            pdf.cell(0, 8, stripped, ln=True)
+        elif es_titulo(stripped):
+            # títulos de sección de un formato propio de la docente
+            pdf.set_font('Helvetica', 'B', 11)
             pdf.cell(0, 8, stripped, ln=True)
         else:
             pdf.set_font('Helvetica', '', 10)

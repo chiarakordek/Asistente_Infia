@@ -2,6 +2,7 @@ import os
 from openai import OpenAI
 from src.config import GROQ_API_KEY
 from src.informe_utils import encabezado_informe, fijar_encabezado, quitar_linea_faltas
+from src.informe_modelo import anonimizar_modelo, construir_prompt_modelo, observaciones_por_area
 import psycopg2
 from psycopg2 import extras
 
@@ -42,7 +43,8 @@ def fetch_one(sql, params=None):
 
 def obtener_datos_alumno(id_alumno):
     alumno = fetch_one('''
-        SELECT al.nombre, al.apellido, u.sala, u.turno, u.nombre as docente
+        SELECT al.nombre, al.apellido, u.sala, u.turno, u.nombre as docente,
+               u.id_usuario, u.informe_modelo
         FROM alumnos al
         JOIN usuarios u ON al.id_usuario = u.id_usuario
         WHERE al.id_alumno = %s
@@ -170,6 +172,15 @@ IMPORTANTE: El ejemplo es solo para el ESTILO. NO copies el contenido. Usá las 
 
 OBSERVACIONES DEL ALUMNO:
 {texto_observaciones_ia}"""
+
+    modelo = (alumno.get('informe_modelo') or '').strip()
+    if modelo:
+        # La docente cargó su propio formato: se respetan sus áreas y su estructura.
+        nombres = [f"{al['nombre']} {al['apellido']}" for al in fetch_all(
+            'SELECT nombre, apellido FROM alumnos WHERE id_usuario = %s', (alumno['id_usuario'],))]
+        modelo_ia = anonimizar_modelo(modelo, nombres, docente)
+        obs_ia = anonimizar_modelo(observaciones_por_area(notas), [nombre_completo])
+        user_prompt = construir_prompt_modelo(modelo_ia, obs_ia, encabezado)
 
     response = client.chat.completions.create(
         model=MODELO_INFORMES,

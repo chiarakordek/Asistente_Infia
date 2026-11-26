@@ -104,6 +104,7 @@ from src.db import (
     solicitar_baja_usuario, cancelar_baja_usuario,
     eliminar_usuario_completamente, obtener_bajas_vencidas,
     marcar_tutorial_completado,
+    obtener_informe_modelo, guardar_informe_modelo,
 )
 from src.suscripcion import (
     estado_cuenta, dias_restantes, crear_preapproval,
@@ -1335,6 +1336,42 @@ def api_actualizar_informe(id_alumno):
         return jsonify(error='El contenido no puede estar vacío'), 400
     actualizar_informe(id_alumno, contenido)
     return jsonify(ok=True, contenido=contenido)
+
+# ─── API: INFORME MODELO (formato propio de la docente) ───
+
+@app.route('/api/informe-modelo', methods=['GET'])
+@login_required
+def api_obtener_informe_modelo():
+    modelo = obtener_informe_modelo(session['user_id'])
+    return jsonify(modelo=modelo, activo=bool(modelo))
+
+@app.route('/api/informe-modelo', methods=['PUT'])
+@login_required
+def api_guardar_informe_modelo():
+    from src.informe_modelo import MAX_MODELO, limpiar_modelo
+    texto = (request.json or {}).get('modelo') or ''
+    if len(texto) > MAX_MODELO * 2:
+        return jsonify(error=f'El modelo es muy largo. Usá un informe de hasta {MAX_MODELO} caracteres.'), 400
+    modelo = limpiar_modelo(texto)
+    if modelo and len(modelo) < 80:
+        return jsonify(error='El modelo es muy corto. Pegá un informe completo para que podamos copiar su formato.'), 400
+    guardar_informe_modelo(session['user_id'], modelo)
+    return jsonify(ok=True, modelo=modelo, activo=bool(modelo))
+
+@app.route('/api/informe-modelo/archivo', methods=['POST'])
+@login_required
+def api_leer_archivo_modelo():
+    from src.informe_modelo import ModeloInvalido, texto_de_archivo
+    archivo = request.files.get('archivo')
+    if not archivo:
+        return jsonify(error='Elegí un archivo.'), 400
+    try:
+        texto = texto_de_archivo(archivo.filename, archivo.read())
+    except ModeloInvalido as e:
+        return jsonify(error=str(e)), 400
+    if not texto:
+        return jsonify(error='El archivo no tiene texto para leer.'), 400
+    return jsonify(ok=True, texto=texto)
 
 # ─── PWA & STATIC ────────────────────────
 
