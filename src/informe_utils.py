@@ -11,10 +11,22 @@ except Exception:
 RE_ENCABEZADO = re.compile(r"INFORME\s+\d{4}\s*-\s*[A-ZÁÉÍÓÚÑ ]*ETAPA", re.IGNORECASE)
 
 
-def quitar_linea_faltas(contenido):
-    """Retira el campo de faltas de informes nuevos y ya guardados."""
+def limpiar_markdown(contenido):
+    """Quita marcas de markdown que a veces devuelve la IA (**negrita**, # títulos, `código`)."""
     if not contenido:
         return contenido
+    texto = re.sub(r"\*\*|__|`", "", contenido)
+    texto = re.sub(r"^[ \t]*#{1,6}[ \t]*", "", texto, flags=re.MULTILINE)
+    # líneas que quedaron con un asterisco suelto de cursiva o de marca
+    texto = re.sub(r"^[ \t]*\*[ \t]*$", "", texto, flags=re.MULTILINE)
+    return texto
+
+
+def quitar_linea_faltas(contenido):
+    """Limpia el informe (nuevo o ya guardado): saca el campo de faltas y las marcas de markdown."""
+    if not contenido:
+        return contenido
+    contenido = limpiar_markdown(contenido)
     return re.sub(
         r"^\s*(?:FALTAS|INASISTENCIAS|AUSENCIAS)\s*:[^\r\n]*(?:\r?\n|$)",
         "",

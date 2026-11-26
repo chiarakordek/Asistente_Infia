@@ -94,6 +94,23 @@ class PromptModeloTest(unittest.TestCase):
             self.assertFalse(es_titulo(t), t)
 
 
+class LimpiezaMarkdownTest(unittest.TestCase):
+    def test_saca_asteriscos_y_titulos_markdown(self):
+        from src.informe_utils import quitar_linea_faltas
+        texto = '**\n**INFORMES EVALUATIVOS**\n## IDENTIDAD Y CONVIVENCIA\nLucía **participa** con `alegría`.\nFALTAS: 3\n*'
+        limpio = quitar_linea_faltas(texto)
+        self.assertNotIn('*', limpio)
+        self.assertNotIn('#', limpio)
+        self.assertNotIn('`', limpio)
+        self.assertNotIn('FALTAS', limpio)
+        self.assertIn('INFORMES EVALUATIVOS\nIDENTIDAD Y CONVIVENCIA\nLucía participa con alegría.', limpio)
+
+    def test_respeta_texto_sin_markdown(self):
+        from src.informe_utils import limpiar_markdown
+        texto = 'IDENTIDAD Y CONVIVENCIA\nComparte con sus pares - y espera su turno.'
+        self.assertEqual(limpiar_markdown(texto), texto)
+
+
 class IntegracionTest(unittest.TestCase):
     def read(self, relative):
         return (ROOT / relative).read_text(encoding='utf-8')

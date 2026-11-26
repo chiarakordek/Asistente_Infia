@@ -618,6 +618,9 @@ function mostrarInforme(container, contenido, idAlumno, nombre, apellido) {
 
 function limpiarFaltasInforme(contenido) {
   return (contenido || '')
+    .replace(/\*\*|__|`/g, '')
+    .replace(/^[ \t]*#{1,6}[ \t]*/gm, '')
+    .replace(/^[ \t]*\*[ \t]*$/gm, '')
     .replace(/^\s*(?:FALTAS|INASISTENCIAS|AUSENCIAS)\s*:[^\r\n]*(?:\r?\n|$)/gim, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
